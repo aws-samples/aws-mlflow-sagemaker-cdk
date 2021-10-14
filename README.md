@@ -81,18 +81,18 @@ npm install -g aws-cdk@latest
 cdk --version
 ```
 
-Take a note of the latest version that you install, at the time of writing this post it is 1.118.0. Open the package.json file and replace the version “1.118.0” of the following modules with the latest version that you have installed above.
+Take a note of the latest version that you install, at the time of writing this post it is 1.124.0. Open the package.json file and replace the version “1.124.0” of the following modules with the latest version that you have installed above.
 
 ```typescript
-    "@aws-cdk/assert": "1.118.0",
-    "@aws-cdk/aws-apigatewayv2": "^1.118.0",
-    "@aws-cdk/aws-ec2": "1.118.0",
-    "@aws-cdk/aws-ecr": "1.118.0",
-    "@aws-cdk/aws-ecs": "1.118.0",
-    "@aws-cdk/aws-elasticloadbalancingv2": "1.118.0",
-    "@aws-cdk/aws-iam": "1.118.0",
-    "@aws-cdk/aws-logs": "1.118.0",
-    "@aws-cdk/aws-servicediscovery": "1.118.0",
+    "@aws-cdk/assert": "1.124.0",
+    "@aws-cdk/aws-apigatewayv2": "^1.124.0",
+    "@aws-cdk/aws-ec2": "1.124.0",
+    "@aws-cdk/aws-ecr": "1.124.0",
+    "@aws-cdk/aws-ecs": "1.124.0",
+    "@aws-cdk/aws-elasticloadbalancingv2": "1.124.0",
+    "@aws-cdk/aws-iam": "1.124.0",
+    "@aws-cdk/aws-logs": "1.124.0",
+    "@aws-cdk/aws-servicediscovery": "1.124.0",
 ```
 ```bash
 npm install
