@@ -67,7 +67,7 @@ Click Cloud9 and create an AWS Cloud9 environment in the us-west-2 region based 
 
 Open a new terminal inside AWS Cloud9 IDE and run:
 ```bash
-git clone https://gitlab.aws.dev/irsbuchh/aws-mlflow-sagemaker-cdk.git
+git clone https://github.com/aws-samples/aws-mlflow-sagemaker-cdk
 ```
 
 ### Install AWS CDK
