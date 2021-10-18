@@ -6,6 +6,6 @@ from setuptools import setup, find_packages
 setup(name='sagemaker-example',
       version='1.0',
       description='SageMaker MLFlow Example.',
-      author='sofian',
-      author_email='hamitis@amazon.com',
+      author='Paolo',
+      author_email='frpaolo@amazon.at',
       packages=find_packages(exclude=('tests', 'docs')))
