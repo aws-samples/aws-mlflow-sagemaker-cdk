@@ -68,7 +68,7 @@ export SECURITY_GROUP_ID=${vpc.vpcDefaultSecurityGroup}`
                     instanceType: "ml.t3.large",
                     volumeSizeInGb: 40,
                     notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
-                    defaultCodeRepository: "https://github.com/aws-samples/amazon-sagemaker-mlflow-fargate",
+                    defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
                     subnetId: vpc.publicSubnets[0].subnetId,
                     securityGroupIds: [vpc.vpcDefaultSecurityGroup],
                     lifecycleConfigName: lifecycleConfig.notebookInstanceLifecycleConfigName
