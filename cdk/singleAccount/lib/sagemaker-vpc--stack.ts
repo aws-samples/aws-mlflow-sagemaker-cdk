@@ -7,6 +7,7 @@ import * as apig from "@aws-cdk/aws-apigatewayv2";
 export class SageMakerVpcStack extends cdk.Stack {
   // 👇 Export Vpc
   public readonly vpc: ec2.Vpc;
+  public readonly api: apig.HttpApi;
 
   constructor(
     scope: cdk.Construct,
@@ -30,7 +31,7 @@ export class SageMakerVpcStack extends cdk.Stack {
     });
 
     // 👇 HTTP Api
-    const api = new apig.HttpApi(this, "mlflow-api", {
+    this.api = new apig.HttpApi(this, "mlflow-api", {
       createDefaultStage: true,
     });
 
@@ -39,7 +40,7 @@ export class SageMakerVpcStack extends cdk.Stack {
       this,
       "MLflowIntegration",
       {
-        apiId: api.httpApiId,
+        apiId: this.api.httpApiId,
         connectionId: httpVpcLink.ref,
         connectionType: "VPC_LINK",
         description: "API Integration",
@@ -52,13 +53,13 @@ export class SageMakerVpcStack extends cdk.Stack {
 
     // 👇 HTTP Api Route
     new apig.CfnRoute(this, "Route", {
-      apiId: api.httpApiId,
+      apiId: this.api.httpApiId,
       routeKey: "ANY /{proxy+}",
       target: `integrations/${integration.ref}`,
     });
 
     // 👇 API and Service Endpoints
-    const httpApiEndpoint = api.apiEndpoint;
+    const httpApiEndpoint = this.api.apiEndpoint;
     
     new cdk.CfnOutput(this, "MLflow API endpoint: ", {
       value: httpApiEndpoint,
