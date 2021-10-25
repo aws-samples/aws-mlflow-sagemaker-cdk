@@ -497,12 +497,6 @@ Finally, we are ready to deploy our stack.
 ./deploy.sh
 ```
 
-At the prompt, enter y and CDK cli shall deploy the MLflowVpclinkStack and will create a number of resources.
-
-![MlflowStack](./images/cdk-deploy-1.png)
-
-At the second prompt, enter y and CDK cli shall deploy the SageMakerVpcStack.
-
 ## Testing the Http Api 
 
 TBD
