@@ -9,4 +9,11 @@ const env = { region: (process.env['AWS_REGION'] || 'us-west-2') };
 const app = new cdk.App();
 const mlflowVpclinkStack = new MLflowVpclinkStack(app, 'MLflowVpclinkStack', { env: env });
 const sagemakerVpcStack = new SageMakerVpcStack(app, 'SageMakerVpcStack', mlflowVpclinkStack.httpVpcLink, mlflowVpclinkStack.httpApiListener , { env: env });
-new SageMakerNotebookInstance(app, 'SageMakerNotebookInstance', sagemakerVpcStack.vpc, { env: env })
+
+new SageMakerNotebookInstance(
+    app, 
+    'SageMakerNotebookInstance', 
+    sagemakerVpcStack.vpc, 
+    sagemakerVpcStack.api,
+    { env: env }
+)
