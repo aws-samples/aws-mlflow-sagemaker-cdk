@@ -8,7 +8,6 @@ export class SageMakerNotebookInstance extends cdk.Stack {
     constructor(
         scope: cdk.Construct,
         id: string,
-        vpc: ec2.Vpc,
         api: apig.HttpApi,
         props?: cdk.StackProps
     ){
@@ -43,18 +42,14 @@ export class SageMakerNotebookInstance extends cdk.Stack {
             onCreate: [
               {
                 content: cdk.Fn.base64(
-`echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc
-echo "export SUBNET_ID=${vpc.publicSubnets[0].subnetId}" | tee -a /home/ec2-user/.bashrc
-echo "export SECURITY_GROUP_ID=${vpc.vpcDefaultSecurityGroup}" | tee -a /home/ec2-user/.bashrc`
+`echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc`
                 )
               }
             ],
             onStart: [
               {
                 content: cdk.Fn.base64(
-`export MLFLOWSERVER=${api.apiEndpoint}
-export SUBNET_ID=${vpc.publicSubnets[0].subnetId}
-export SECURITY_GROUP_ID=${vpc.vpcDefaultSecurityGroup}`
+`export MLFLOWSERVER=${api.apiEndpoint}`
                 )
               }
             ]
@@ -69,8 +64,6 @@ export SECURITY_GROUP_ID=${vpc.vpcDefaultSecurityGroup}`
                     volumeSizeInGb: 40,
                     notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
                     defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
-                    subnetId: vpc.publicSubnets[0].subnetId,
-                    securityGroupIds: [vpc.vpcDefaultSecurityGroup],
                     lifecycleConfigName: lifecycleConfig.notebookInstanceLifecycleConfigName
                 }
             );
