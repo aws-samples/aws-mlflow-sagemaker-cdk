@@ -13,7 +13,6 @@ const sagemakerVpcStack = new SageMakerVpcStack(app, 'SageMakerVpcStack', mlflow
 new SageMakerNotebookInstance(
     app, 
     'SageMakerNotebookInstance', 
-    sagemakerVpcStack.vpc, 
     sagemakerVpcStack.api,
     { env: env }
 )
