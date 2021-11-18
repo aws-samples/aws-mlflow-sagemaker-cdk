@@ -191,19 +191,11 @@ export class MLflowVpclinkStack extends cdk.Stack {
       streamPrefix: "mlflowService",
     });
 
-    // 👇 Amazon ECR Repositories
-    const mlflowservicerepo = ecr.Repository.fromRepositoryName(
-      this,
-      "mlflowServiceRepo",
-      "mlflow-Service"
-    );
-
     // 👇 MlFlow Task Container
 
     const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
       "mlflowContainer",
       {
-        //image: ecs.ContainerImage.fromEcrRepository(mlflowservicerepo),
         containerName: "mlflowContainer",
         essential: true,
         // memoryReservationMiB: 512,
@@ -226,7 +218,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
         },
         logging: mlflowServiceLogDriver,
       });
-
+    
     // 👇 nginx Task Container
     const nginxContainer = mlflowTaskDefinition.addContainer(
       "nginxContainer",
@@ -240,7 +232,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
           protocol: ecs.Protocol.TCP
         }],
         image: ecs.ContainerImage.fromAsset('../../src/nginx', {
-          repositoryName: containerRepository,
+          repositoryName: containerRepository
         }),
         logging: mlflowServiceLogDriver,
       }

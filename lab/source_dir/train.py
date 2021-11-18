@@ -10,15 +10,32 @@ from sklearn.ensemble import RandomForestRegressor
 import mlflow
 import mlflow.sklearn
 import joblib
+import boto3
+import json
 
 logging.basicConfig(level=logging.INFO)
 
-
+def retrieve_token(region_name, secret_name, secret_key):
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+    
+    kwarg = {'SecretId': secret_name}
+    secret = client.get_secret_value(**kwarg)
+    token = json.loads(secret['SecretString'])[secret_key]
+    
+    return token
+    
 if __name__ =='__main__':
     parser = argparse.ArgumentParser()
     # MLflow related parameters
     parser.add_argument("--tracking_uri", type=str)
     parser.add_argument("--experiment_name", type=str)
+    parser.add_argument("--region", type=str, default='us-west-2')
+    parser.add_argument("--secret_name", type=str)
+    parser.add_argument("--secret_key", type=str)
     # hyperparameters sent by the client are passed as command-line arguments to the script.
     # to simplify the demo we don't use all sklearn RandomForest hyperparameters
     parser.add_argument('--n-estimators', type=int, default=10)
@@ -38,7 +55,7 @@ if __name__ =='__main__':
     logging.info('reading data')
     train_df = pd.read_csv(os.path.join(args.train, args.train_file))
     test_df = pd.read_csv(os.path.join(args.test, args.test_file))
-
+    
     logging.info('building training and testing datasets')
     X_train = train_df[args.features.split()]
     X_test = test_df[args.features.split()]
@@ -46,6 +63,8 @@ if __name__ =='__main__':
     y_test = test_df[args.target]
 
     
+    # sets the header Authentication: Bearer <token>
+    os.environ['MLFLOW_TRACKING_TOKEN'] = retrieve_token(args.region, args.secret_name, args.secret_key)
     # set remote mlflow server
     mlflow.set_tracking_uri(args.tracking_uri)
     mlflow.set_experiment(args.experiment_name)
