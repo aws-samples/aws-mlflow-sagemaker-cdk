@@ -6,9 +6,7 @@ import * as lambda from "@aws-cdk/aws-lambda";
 import * as iam from "@aws-cdk/aws-iam";
 import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
 
-export class SageMakerVpcStack extends cdk.Stack {
-  // 👇 Export Vpc
-  //public readonly vpc: ec2.Vpc;
+export class HttpGatewayStack extends cdk.Stack {
   public readonly api: apig.HttpApi;
   public readonly mlflowSecretArn: string;
 
@@ -35,18 +33,6 @@ export class SageMakerVpcStack extends cdk.Stack {
     });
     
     this.mlflowSecretArn = mlflowCredentialsSecret.secretArn
-    
-    // 👇 SageMaker VPC - to delete if not needed
-    // this.vpc = new ec2.Vpc(this, "SageMakerVPC", {
-    //   natGateways: 0,
-    //   subnetConfiguration: [
-    //     {
-    //       cidrMask: 24,
-    //       name: "ingress",
-    //       subnetType: ec2.SubnetType.PUBLIC,
-    //     },
-    //   ],
-    // });
     
     // 👇 HTTP Api
     this.api = new apig.HttpApi(this, "mlflow-api", {

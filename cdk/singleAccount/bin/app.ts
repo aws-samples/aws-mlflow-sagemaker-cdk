@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from '@aws-cdk/core';
 import { MLflowVpclinkStack } from '../lib/mlflow-vpclink-stack';
-import { SageMakerVpcStack } from '../lib/sagemaker-vpc--stack';
+import { HttpGatewayStack } from '../lib/http-gateway-stack';
 import { SageMakerNotebookInstance } from '../lib/sagemaker-notebook-instance';
 const env = { region: (process.env['AWS_REGION'] || 'us-west-2') };
 
@@ -16,9 +16,9 @@ const mlflowVpclinkStack = new MLflowVpclinkStack(
     { env: env }
 );
 
-const sagemakerVpcStack = new SageMakerVpcStack(
+const httpGatewayStack = new HttpGatewayStack(
     app,
-    'SageMakerVpcStack',
+    'HttpGatewayStack',
     mlflowVpclinkStack.httpVpcLink,
     mlflowVpclinkStack.httpApiListener,
     mlflow_secret_name,
@@ -29,9 +29,9 @@ const sagemakerVpcStack = new SageMakerVpcStack(
 new SageMakerNotebookInstance(
     app,
     'SageMakerNotebookInstance', 
-    sagemakerVpcStack.api,
+    httpGatewayStack.api,
     mlflow_secret_name,
     mlflow_token_name,
-    sagemakerVpcStack.mlflowSecretArn,
+    httpGatewayStack.mlflowSecretArn,
     { env: env }
 )
