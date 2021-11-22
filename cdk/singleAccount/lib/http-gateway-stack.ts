@@ -21,7 +21,7 @@ export class HttpGatewayStack extends cdk.Stack {
   ) {
     super(scope, id, props);
 
-    // 👇 DB Credentials
+    // 👇 Mlflow Credentials
     const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MLflowCredentialsSecret', {
       secretName: mlflowSecretName,
       generateSecretString: {

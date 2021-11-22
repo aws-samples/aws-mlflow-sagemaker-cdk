@@ -33,7 +33,13 @@ export class MLflowVpclinkStack extends cdk.Stack {
 
   readonly bucketName = `mlops-${this.account}`
 
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(
+    scope: cdk.Construct, 
+    id: string,
+    mlflowSecretName: string,
+    mlflowUsername: string,
+    props?: cdk.StackProps
+  ) {
     super(scope, id, props);
 
     // 👇 VPC
@@ -190,9 +196,44 @@ export class MLflowVpclinkStack extends cdk.Stack {
       logGroup: mlflowServiceLogGroup,
       streamPrefix: "mlflowService",
     });
+    
+    // 👇 Mlflow Credentials
+    const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MLflowCredentialsSecret', {
+      secretName: mlflowSecretName,
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          username: mlflowUsername
+        }),
+        excludePunctuation: true,
+        includeSpace: false,
+        generateStringKey: 'password'
+      }
+    });
 
+    // 👇 nginx Task Container
+    const nginxContainer = mlflowTaskDefinition.addContainer(
+      "nginxContainer",
+      {
+        containerName: "nginxContainer",
+        essential: true,
+        // memoryReservationMiB: 512,
+        // cpu: 512,
+        portMappings: [{
+          containerPort: 80,
+          protocol: ecs.Protocol.TCP
+        }],
+        image: ecs.ContainerImage.fromAsset('../../src/nginx', {
+          repositoryName: containerRepository,
+          buildArgs: {
+            USERNAME: 'admin',
+            PASSWORD: mlflowCredentialsSecret.secretValueFromJson('password').toString()
+          }
+        }),
+        logging: mlflowServiceLogDriver,
+      }
+    );
+    
     // 👇 MlFlow Task Container
-
     const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
       "mlflowContainer",
       {
@@ -218,25 +259,6 @@ export class MLflowVpclinkStack extends cdk.Stack {
         },
         logging: mlflowServiceLogDriver,
       });
-    
-    // 👇 nginx Task Container
-    const nginxContainer = mlflowTaskDefinition.addContainer(
-      "nginxContainer",
-      {
-        containerName: "nginxContainer",
-        essential: true,
-        // memoryReservationMiB: 512,
-        // cpu: 512,
-        portMappings: [{
-          containerPort: 80,
-          protocol: ecs.Protocol.TCP
-        }],
-        image: ecs.ContainerImage.fromAsset('../../src/nginx', {
-          repositoryName: containerRepository
-        }),
-        logging: mlflowServiceLogDriver,
-      }
-    );
 
     // 👇 Security Group
     const mlflowServiceSecGrp = new ec2.SecurityGroup(
@@ -287,9 +309,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       "mlflowServiceTargetGroup",
       {
         healthCheck: {
-          path: "/",
-          //   interval: cdk.Duration.seconds(30),
-          //   timeout: cdk.Duration.seconds(3),
+          path: "/elb-status"
         },
         targets: [mlflowService],
         port: 80,

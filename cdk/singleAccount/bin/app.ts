@@ -6,13 +6,16 @@ import { HttpGatewayStack } from '../lib/http-gateway-stack';
 import { SageMakerNotebookInstance } from '../lib/sagemaker-notebook-instance';
 const env = { region: (process.env['AWS_REGION'] || 'us-west-2') };
 
-const mlflow_secret_name = 'mlflow-server-credentials'
-const mlflow_token_name = 'mlflow-token'
+const mlflowSecretName = 'mlflow-server-credentials'
+const mlflowTokenName = 'mlflow-token'
+const mlflowUsername = 'admin'
 
 const app = new cdk.App();
 const mlflowVpclinkStack = new MLflowVpclinkStack(
     app,
     'MLflowVpclinkStack',
+    mlflowSecretName,
+    mlflowUsername,
     { env: env }
 );
 
@@ -21,8 +24,8 @@ const httpGatewayStack = new HttpGatewayStack(
     'HttpGatewayStack',
     mlflowVpclinkStack.httpVpcLink,
     mlflowVpclinkStack.httpApiListener,
-    mlflow_secret_name,
-    mlflow_token_name,
+    mlflowSecretName,
+    mlflowTokenName,
     { env: env }
 );
 
@@ -30,8 +33,8 @@ new SageMakerNotebookInstance(
     app,
     'SageMakerNotebookInstance', 
     httpGatewayStack.api,
-    mlflow_secret_name,
-    mlflow_token_name,
+    mlflowSecretName,
+    mlflowTokenName,
     httpGatewayStack.mlflowSecretArn,
     { env: env }
 )
