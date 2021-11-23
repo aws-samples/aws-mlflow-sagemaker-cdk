@@ -20,7 +20,7 @@ def lambda_handler(event, context):
     token = json.loads(secret['SecretString'])[secret_key]
 
     response = {
-        "isAuthorized": True
+        "isAuthorized": False
     };
     if (event['headers']['authorization'] == "Bearer {}".format(token)):
         response = {

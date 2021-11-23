@@ -1,0 +1,1 @@
+cdk synth --profile ibuchh-serverless --all

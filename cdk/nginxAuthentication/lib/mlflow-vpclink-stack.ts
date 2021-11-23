@@ -2,22 +2,17 @@ import * as cdk from "@aws-cdk/core";
 import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
 import * as ec2 from "@aws-cdk/aws-ec2";
 import * as ecs from "@aws-cdk/aws-ecs";
-import * as ecr from "@aws-cdk/aws-ecr";
 import * as iam from "@aws-cdk/aws-iam";
 import * as logs from "@aws-cdk/aws-logs";
-import * as apig from "@aws-cdk/aws-apigatewayv2";
 import * as servicediscovery from "@aws-cdk/aws-servicediscovery";
 import * as ssm from '@aws-cdk/aws-ssm';
 import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
-import * as rds from '@aws-cdk/aws-rds';
 import * as s3 from '@aws-cdk/aws-s3';
 import { CfnDBCluster, CfnDBSubnetGroup } from '@aws-cdk/aws-rds';
-import { NetworkMode } from "@aws-cdk/aws-ecs";
 
 const { ApplicationProtocol } = elbv2;
 const dbName = "mlflowdb"
 const dbPort = 3306
-const dbCredentialsParameter = "databasePassword"
 const dbUsername = "master"
 const containerRepository = "mlflowRepository"
 const clusterName = "mlflowCluster"
@@ -105,6 +100,19 @@ export class MLflowVpclinkStack extends cdk.Stack {
         generateStringKey: 'password'
       }
     });
+    
+        //Mflow credentials
+    const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MlflowCredentialsSecret', {
+      secretName: mlflowSecretName,
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          username: mlflowUsername,
+        }),
+        excludePunctuation: true,
+        includeSpace: false,
+        generateStringKey: 'password'
+      }
+    });
 
     // 👇 DB Credentials parameter
     new ssm.StringParameter(this, 'DBCredentialsArn', {
@@ -162,19 +170,32 @@ export class MLflowVpclinkStack extends cdk.Stack {
     // 👇 Fargate Task Role
     const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+      ],
+      inlinePolicies: {
+        secretsManagerRestricted: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: [mlflowCredentialsSecret.secretArn],
+              actions: [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+              ]
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: ["*"],
+              actions: ["secretsmanager:ListSecrets"]
+            })
+          ]
+        })
+      }
     });
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AmazonECSTaskExecutionRolePolicy"
-      )
-    );
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "AmazonS3FullAccess"
-      )
-    )
 
     // 👇 Task Definitions
     const mlflowTaskDefinition = new ecs.FargateTaskDefinition(
@@ -197,19 +218,6 @@ export class MLflowVpclinkStack extends cdk.Stack {
       streamPrefix: "mlflowService",
     });
     
-    // 👇 Mlflow Credentials
-    const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MLflowCredentialsSecret', {
-      secretName: mlflowSecretName,
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({
-          username: mlflowUsername
-        }),
-        excludePunctuation: true,
-        includeSpace: false,
-        generateStringKey: 'password'
-      }
-    });
-
     // 👇 nginx Task Container
     const nginxContainer = mlflowTaskDefinition.addContainer(
       "nginxContainer",
@@ -222,13 +230,17 @@ export class MLflowVpclinkStack extends cdk.Stack {
           containerPort: 80,
           protocol: ecs.Protocol.TCP
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/nginx', {
+        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {
           repositoryName: containerRepository,
-          buildArgs: {
-            USERNAME: 'admin',
-            PASSWORD: mlflowCredentialsSecret.secretValueFromJson('password').toString()
-          }
+          // buildArgs: {
+          //   USERNAME: 'admin',//mlflowUsername,
+          //   PASSWORD: 'admin'//result //secret.secretValueFromJson('password').toString()
+          // }
         }),
+        secrets: {
+          MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
+          MLFLOW_PASSWORD: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'password')
+        },
         logging: mlflowServiceLogDriver,
       }
     );
@@ -245,7 +257,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
           containerPort: containerPort,
           protocol: ecs.Protocol.TCP,
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/mlops', {
+        image: ecs.ContainerImage.fromAsset('../../src/mlflow', {
           repositoryName: containerRepository,
         }),
         
@@ -303,7 +315,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       protocol: ApplicationProtocol.HTTP,
 
     });
-
+    
     // 👇 Target Groups
     const mlflowServiceTargetGroup = this.httpApiListener.addTargets(
       "mlflowServiceTargetGroup",
@@ -311,7 +323,14 @@ export class MLflowVpclinkStack extends cdk.Stack {
         healthCheck: {
           path: "/elb-status"
         },
-        targets: [mlflowService],
+        targets: [
+          mlflowService.loadBalancerTarget(
+            {
+              containerName: 'nginxContainer',
+              containerPort: 80
+            }
+          )
+        ],
         port: 80,
         protocol: ApplicationProtocol.HTTP,
       }
