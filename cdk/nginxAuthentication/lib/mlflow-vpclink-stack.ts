@@ -25,6 +25,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
   // 👇 Export Vpclink and ALB Listener
   public readonly httpVpcLink: cdk.CfnResource;
   public readonly httpApiListener: elbv2.ApplicationListener;
+  public readonly mlflowSecretArn: string;
 
   readonly bucketName = `mlops-${this.account}`
 
@@ -353,6 +354,8 @@ export class MLflowVpclinkStack extends cdk.Stack {
         SubnetIds: vpc.privateSubnets.map((m) => m.subnetId),
       },
     });
+    
+    this.mlflowSecretArn = mlflowCredentialsSecret.secretArn
 
     new cdk.CfnOutput(this, "ALB Dns Name : ", {
       value: httpApiInternalALB.loadBalancerDnsName,

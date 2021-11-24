@@ -1,7 +1,6 @@
 import * as sagemaker from '@aws-cdk/aws-sagemaker';
 import * as cdk from "@aws-cdk/core";
 import * as iam from "@aws-cdk/aws-iam";
-import * as ec2 from "@aws-cdk/aws-ec2";
 import * as apig from "@aws-cdk/aws-apigatewayv2";
 
 export class SageMakerNotebookInstance extends cdk.Stack {
@@ -10,7 +9,7 @@ export class SageMakerNotebookInstance extends cdk.Stack {
         id: string,
         api: apig.HttpApi,
         mlflowSecretName: string,
-        mlflowTokenName: string,
+        mlflowUsername: string,
         mlflowSecretArn: string,
         props?: cdk.StackProps
     ){
@@ -66,7 +65,7 @@ export class SageMakerNotebookInstance extends cdk.Stack {
                 content: cdk.Fn.base64(
 `echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc
 echo "export MLFLOW_SECRET_NAME=${mlflowSecretName}" | tee -a /home/ec2-user/.bashrc
-echo "export MLFLOW_KEY=${mlflowTokenName}" | tee -a /home/ec2-user/.bashrc`
+echo "export MLFLOW_USERNAME=${mlflowUsername}" | tee -a /home/ec2-user/.bashrc`
                 )
               }
             ],
@@ -75,7 +74,7 @@ echo "export MLFLOW_KEY=${mlflowTokenName}" | tee -a /home/ec2-user/.bashrc`
                 content: cdk.Fn.base64(
 `export MLFLOWSERVER=${api.apiEndpoint}
 export MLFLOW_SECRET_NAME=${mlflowSecretName}
-export MLFLOW_KEY=${mlflowTokenName}`
+export MLFLOW_USERNAME=${mlflowUsername}`
                 )
               }
             ]
