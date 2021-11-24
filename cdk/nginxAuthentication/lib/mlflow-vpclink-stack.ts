@@ -179,7 +179,10 @@ export class MLflowVpclinkStack extends cdk.Stack {
           statements: [
             new iam.PolicyStatement({
               effect: iam.Effect.ALLOW,
-              resources: [mlflowCredentialsSecret.secretArn],
+              resources: [
+                mlflowCredentialsSecret.secretArn,
+                databaseCredentialsSecret.secretArn
+              ],
               actions: [
                 "secretsmanager:GetResourcePolicy",
                 "secretsmanager:GetSecretValue",
@@ -231,11 +234,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
           protocol: ecs.Protocol.TCP
         }],
         image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {
-          repositoryName: containerRepository,
-          // buildArgs: {
-          //   USERNAME: 'admin',//mlflowUsername,
-          //   PASSWORD: 'admin'//result //secret.secretValueFromJson('password').toString()
-          // }
+          repositoryName: containerRepository
         }),
         secrets: {
           MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
@@ -265,9 +264,11 @@ export class MLflowVpclinkStack extends cdk.Stack {
           'BUCKET': `s3://${mlOpsBucket.bucketName}`,
           'HOST': rdsCluster.attrEndpointAddress,
           'PORT': `${dbPort}`,
-          'DATABASE': dbName,
-          'USERNAME': databaseCredentialsSecret.secretValueFromJson('username').toString(),
-          'PASSWORD': databaseCredentialsSecret.secretValueFromJson('password').toString(),
+          'DATABASE': dbName
+        },
+        secrets: {
+          USERNAME: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'username'),
+          PASSWORD: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'password')
         },
         logging: mlflowServiceLogDriver,
       });
