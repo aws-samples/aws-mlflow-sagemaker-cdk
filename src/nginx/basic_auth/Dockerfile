@@ -10,4 +10,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 RUN ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log
 
-CMD echo -n ${MLFLOW_USERNAME}: >> /etc/nginx/.htpasswd && openssl passwd -1 ${MLFLOW_PASSWORD} >> /etc/nginx/.htpasswd && nginx -g 'daemon off;'
+COPY script.sh /root/script.sh
+RUN chmod +x /root/script.sh
+
+CMD /root/script.sh && nginx -g 'daemon off;'
