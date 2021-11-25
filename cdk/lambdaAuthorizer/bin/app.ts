@@ -29,12 +29,12 @@ const httpGatewayStack = new HttpGatewayStack(
     { env: env }
 );
 
-// new SageMakerNotebookInstance(
-//     app,
-//     'SageMakerNotebookInstance', 
-//     httpGatewayStack.api,
-//     mlflowSecretName,
-//     mlflowTokenName,
-//     httpGatewayStack.mlflowSecretArn,
-//     { env: env }
-// )
+new SageMakerNotebookInstance(
+    app,
+    'SageMakerNotebookInstance', 
+    httpGatewayStack.api,
+    mlflowSecretName,
+    mlflowTokenName,
+    httpGatewayStack.mlflowSecretArn,
+    { env: env }
+)
