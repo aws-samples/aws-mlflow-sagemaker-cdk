@@ -152,20 +152,35 @@ export class MLflowVpclinkStack extends cdk.Stack {
     // 👇 Fargate Task Role
     const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+      ],
+      inlinePolicies: {
+        secretsManagerRestricted: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: [
+                databaseCredentialsSecret.secretArn
+              ],
+              actions: [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+              ]
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: ["*"],
+              actions: ["secretsmanager:ListSecrets"]
+            })
+          ]
+        })
+      }
     });
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AmazonECSTaskExecutionRolePolicy"
-      )
-    );
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "AmazonS3FullAccess"
-      )
-    )
-
+  
     // 👇 Task Definitions
     const mlflowTaskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -216,9 +231,11 @@ export class MLflowVpclinkStack extends cdk.Stack {
           'BUCKET': `s3://${mlOpsBucket.bucketName}`,
           'HOST': rdsCluster.attrEndpointAddress,
           'PORT': `${dbPort}`,
-          'DATABASE': dbName,
-          'USERNAME': databaseCredentialsSecret.secretValueFromJson('username').toString(),
-          'PASSWORD': databaseCredentialsSecret.secretValueFromJson('password').toString(),
+          'DATABASE': dbName
+        },
+        secrets: {
+          USERNAME: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'username'),
+          PASSWORD: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'password')
         },
         logging: mlflowServiceLogDriver,
       });
