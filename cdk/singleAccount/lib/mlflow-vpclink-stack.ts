@@ -5,19 +5,15 @@ import * as ecs from "@aws-cdk/aws-ecs";
 import * as ecr from "@aws-cdk/aws-ecr";
 import * as iam from "@aws-cdk/aws-iam";
 import * as logs from "@aws-cdk/aws-logs";
-import * as apig from "@aws-cdk/aws-apigatewayv2";
 import * as servicediscovery from "@aws-cdk/aws-servicediscovery";
 import * as ssm from '@aws-cdk/aws-ssm';
 import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
-import * as rds from '@aws-cdk/aws-rds';
 import * as s3 from '@aws-cdk/aws-s3';
 import { CfnDBCluster, CfnDBSubnetGroup } from '@aws-cdk/aws-rds';
-import { NetworkMode } from "@aws-cdk/aws-ecs";
 
 const { ApplicationProtocol } = elbv2;
 const dbName = "mlflowdb"
 const dbPort = 3306
-const dbCredentialsParameter = "databasePassword"
 const dbUsername = "master"
 const containerRepository = "mlflowRepository"
 const clusterName = "mlflowCluster"
