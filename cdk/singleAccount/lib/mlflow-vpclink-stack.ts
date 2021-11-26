@@ -308,11 +308,16 @@ export class MLflowVpclinkStack extends cdk.Stack {
       "mlflowServiceTargetGroup",
       {
         healthCheck: {
-          path: "/",
-          //   interval: cdk.Duration.seconds(30),
-          //   timeout: cdk.Duration.seconds(3),
+          path: "/elb-status"
         },
-        targets: [mlflowService],
+        targets: [
+          mlflowService.loadBalancerTarget(
+            {
+              containerName: 'nginxContainer',
+              containerPort: 80
+            }
+          )
+        ],
         port: 80,
         protocol: ApplicationProtocol.HTTP,
       }
