@@ -21,7 +21,6 @@
     "@aws-cdk/aws-logs": "1.124.0",
     "@aws-cdk/aws-servicediscovery": "1.124.0",
     "@aws-cdk/aws-sagemaker": "1.124.0",
-    "@aws-cdk/aws-iam": "1.124.0",
     "@aws-cdk/core": "1.124.0",
     "@types/jest": "^26.0.10",
     "@types/node": "10.17.27",
