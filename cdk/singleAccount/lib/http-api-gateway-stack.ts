@@ -1,11 +1,9 @@
 import * as cdk from "@aws-cdk/core";
 import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
-import * as ec2 from "@aws-cdk/aws-ec2";
 import * as apig from "@aws-cdk/aws-apigatewayv2";
 
 export class HttpApiGatewayStack extends cdk.Stack {
   // 👇 Export Vpc
-  public readonly vpc: ec2.Vpc;
   public readonly api: apig.HttpApi;
 
   constructor(
@@ -16,18 +14,6 @@ export class HttpApiGatewayStack extends cdk.Stack {
     props?: cdk.StackProps
   ) {
     super(scope, id, props);
-
-    // 👇 SageMaker VPC
-    this.vpc = new ec2.Vpc(this, "SageMakerVPC", {
-      natGateways: 0,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: "ingress",
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-      ],
-    });
 
     // 👇 HTTP Api
     this.api = new apig.HttpApi(this, "mlflow-api", {
