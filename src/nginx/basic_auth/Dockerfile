@@ -1,8 +1,6 @@
 FROM nginx:1.17.6
 RUN apt-get update
 RUN apt-get install openssl -y
-ENV MLFLOW_USERNAME=admin
-ENV MLFLOW_PASSWORD=admin
 # Remove default Nginx config
 RUN rm /etc/nginx/nginx.conf
 # Copy the modified Nginx conf
