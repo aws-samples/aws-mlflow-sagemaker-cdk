@@ -1,7 +1,6 @@
 import * as sagemaker from '@aws-cdk/aws-sagemaker';
 import * as cdk from "@aws-cdk/core";
 import * as iam from "@aws-cdk/aws-iam";
-import * as ec2 from "@aws-cdk/aws-ec2";
 import * as apig from "@aws-cdk/aws-apigatewayv2";
 
 export class SageMakerNotebookInstance extends cdk.Stack {
@@ -9,6 +8,9 @@ export class SageMakerNotebookInstance extends cdk.Stack {
         scope: cdk.Construct,
         id: string,
         api: apig.HttpApi,
+        mlflowSecretName: string,
+        mlflowUsername: string,
+        mlflowSecretArn: string,
         props?: cdk.StackProps
     ){
         super(scope, id, props);
@@ -18,7 +20,7 @@ export class SageMakerNotebookInstance extends cdk.Stack {
           assumedBy: new iam.ServicePrincipal("sagemaker.amazonaws.com"),
           managedPolicies: [
             iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess"),
-            iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryFullAccess") // need to push mlflow container
+            iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryFullAccess"), // need to push mlflow container
           ],
           inlinePolicies: {
             s3Buckets: new iam.PolicyDocument({
@@ -30,6 +32,25 @@ export class SageMakerNotebookInstance extends cdk.Stack {
                 })
               ],
             }),
+            secretsManagerRestricted: new iam.PolicyDocument({
+              statements: [
+                new iam.PolicyStatement({
+                  effect: iam.Effect.ALLOW,
+                  resources: [mlflowSecretArn],
+                  actions: [
+                    "secretsmanager:GetResourcePolicy",
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:DescribeSecret",
+                    "secretsmanager:ListSecretVersionIds"
+                  ]
+                }),
+                new iam.PolicyStatement({
+                  effect: iam.Effect.ALLOW,
+                  resources: ["*"],
+                  actions: ["secretsmanager:ListSecrets"]
+                })
+              ]
+            })
           },
         });
         
@@ -42,14 +63,18 @@ export class SageMakerNotebookInstance extends cdk.Stack {
             onCreate: [
               {
                 content: cdk.Fn.base64(
-`echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc`
+`echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc
+echo "export MLFLOW_SECRET_NAME=${mlflowSecretName}" | tee -a /home/ec2-user/.bashrc
+echo "export MLFLOW_USERNAME=${mlflowUsername}" | tee -a /home/ec2-user/.bashrc`
                 )
               }
             ],
             onStart: [
               {
                 content: cdk.Fn.base64(
-`export MLFLOWSERVER=${api.apiEndpoint}`
+`export MLFLOWSERVER=${api.apiEndpoint}
+export MLFLOW_SECRET_NAME=${mlflowSecretName}
+export MLFLOW_USERNAME=${mlflowUsername}`
                 )
               }
             ]

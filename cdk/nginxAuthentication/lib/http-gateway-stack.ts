@@ -1,13 +1,10 @@
 import * as cdk from "@aws-cdk/core";
 import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
-import * as ec2 from "@aws-cdk/aws-ec2";
-import * as logs from "@aws-cdk/aws-logs";
 import * as apig from "@aws-cdk/aws-apigatewayv2";
 
-export class SageMakerVpcStack extends cdk.Stack {
-  // 👇 Export Vpc
-  public readonly vpc: ec2.Vpc;
+export class HttpGatewayStack extends cdk.Stack {
   public readonly api: apig.HttpApi;
+  public readonly mlflowSecretArn: string;
 
   constructor(
     scope: cdk.Construct,
@@ -17,19 +14,7 @@ export class SageMakerVpcStack extends cdk.Stack {
     props?: cdk.StackProps
   ) {
     super(scope, id, props);
-
-    // 👇 SageMaker VPC
-    this.vpc = new ec2.Vpc(this, "SageMakerVPC", {
-      natGateways: 0,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: "ingress",
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-      ],
-    });
-
+    
     // 👇 HTTP Api
     this.api = new apig.HttpApi(this, "mlflow-api", {
       createDefaultStage: true,
@@ -50,12 +35,12 @@ export class SageMakerVpcStack extends cdk.Stack {
         payloadFormatVersion: "1.0",
       }
     );
-
+    
     // 👇 HTTP Api Route
     new apig.CfnRoute(this, "Route", {
       apiId: this.api.httpApiId,
       routeKey: "ANY /{proxy+}",
-      target: `integrations/${integration.ref}`,
+      target: `integrations/${integration.ref}`
     });
 
     // 👇 API and Service Endpoints

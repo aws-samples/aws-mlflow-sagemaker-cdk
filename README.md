@@ -15,13 +15,22 @@ MLflow is an open-source platform to manage the ML lifecycle, including experime
 
 ## Architecture
 
-In this project, we show how to deploy MLflow on [AWS Fargate](https://aws.amazon.com/fargate) and use it during your ML project with [Amazon SageMaker](https://aws.amazon.com/sagemaker). Our solution is based on two Amazon VPCs: 
+In this project, we show how to deploy MLflow on [AWS Fargate](https://aws.amazon.com/fargate) and use it during your ML project with [Amazon SageMaker](https://aws.amazon.com/sagemaker). Our solution is based on three main high level components: 
+* The MLFlow server;
+* The HTTP API Gateway; and
+* The SageMaker Notebook Instance.
 
-### MLflow VPC
-MLflow is provisioned in this VPC using Amazon ECS and AWS Fargate and the MLflow application is deployed using an internal Application LoadBalancer. We use [Amazon Simple Storage Service](http://aws.amazon.com/s3) (Amazon S3) and [Amazon Relational Database Service](http://aws.amazon.com/rds) (Amazon RDS) as MLflow artifact and backend stores, respectively. 
+### MLflow Server
+MLflow is provisioned in a VPC on an Amazon ECS cluster (TODO: add link) using AWS Fargate for the serverless compute engine. The MLflow application is shielded by an internal Application LoadBalancer. We use [Amazon Simple Storage Service](http://aws.amazon.com/s3) (Amazon S3) and [Amazon Relational Database Service](http://aws.amazon.com/rds) (Amazon RDS) as MLflow artifact and backend stores, respectively.
 
-### SageMaker VPC
-Data Scientists will use this VPC to create Amazon SageMaker Studio or notebook instances to run their ML jobs. In order to implement the private integration, we create a AWS PrivateLink to encapsulate connections between SageMaker VPC and MLflow VPC through an Amazon API Gateway. Inside the SageMaker training jobs Data Scientists shall use the API Gateway endpoint to connect to MLflow platform running in MLflow VPC. For security purposes, there is no direct connectivity into the MLflow VPC from the outside world.
+TODO: add the picture for the MLFlow stack VPC, NGINX + mlflow, 
+
+### Amazon API Gateway
+In order to implement the private integration, we create a AWS PrivateLink to encapsulate connections between MLflow server and the outside world through an [Amazon HTTP API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html). This gives us the possibility to implemt custom access control via several mechanisms, i.e. Lambda Authorizers, JWT Authorizers, and IAM authorization. More info can be found [here](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-access-control.html). 
+
+### SageMaker Notebook
+
+[Amazon SageMaker Notebook Instances](https://docs.aws.amazon.com/sagemaker/latest/dg/nbi.html) are a ML compute instances that run the Jupyter Notebook App. SageMaker manages creating the instance and related resources. We will use an Amazon SageMaker Notebook Instance to experiment and tackle our machine learning problem, and to show how SageMaker can be integrated with MLFlow.
 
 ## Implementation
 
@@ -39,8 +48,7 @@ In order to implement the instructions laid out in this post, you will need the 
 - A [GitHub](https://help.github.com/en/github/getting-started-with-github/signing-up-for-a-new-github-account) account
 
 ## Architecture
-As shown in Fig 1, we shall create one AWS CDK application consisting of two AWS CDK stacks **MLflowVpclinkStack** and **SageMakerVpcStack**. 
-
+As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpclinkStack**, **HttpApiGatewayStack**, and a **SageMakerNotebookInstanceStack**.
 
 Inside the MLflowVpclinkStack, we deploy mlflowService using Amazon Fargate within the MLOps VPC. An internal load balancer distributes external incoming application traffic to the mlflowService. In order to implement the private integration we create a VpcLink to encapsulate connections between API Gateway and mlflowService. Inside the SageMakerVpcStack, we create an Http Api that integrates with the mlflowService Amazon Fargate service running inside the MLflowVpclinkStack using the Vpclink and internal load balancer listener.
 
@@ -76,8 +84,8 @@ The AWS Cloud Development Kit (AWS CDK) is an open-source software development f
 
 Using Cloud9 environment, open a new Terminal and use the following commands:
 ```bash
-cd aws-mlflow-sagemaker-cdk/cdk/singleAccount
-npm install -g aws-cdk@latest
+cd aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
+npm install -g aws-cdk@1.124.0
 cdk --version
 ```
 
@@ -112,7 +120,7 @@ Let us discuss these stacks one by one.
 
 ![MlflowVpclinkStack](./images/MlflowVpclinkStack.png)
 
-Under the cdk/singleAccount/lib folder, open the mlflow-vpclink-stack.ts file and let us explore the following different CDK constructs.
+Under the cdk/nginxAuthentication/lib folder, open the mlflow-vpclink-stack.ts file and let us explore the following different CDK constructs.
 
 Export Vpclink and ALB Listener:
 ```typescript
@@ -126,7 +134,7 @@ These two variables enable us to export the provisioned Vpclink along with the A
 
 This single line of code creates a MLOpsVPC with two Public and two Private Subnets.
 ```typescript
-    const vpc = new ec2.Vpc(this, "MLOpsVPC");
+const vpc = new ec2.Vpc(this, "MLOpsVPC");
 ```
 
 **Aurora RDS Cluster:**
@@ -135,28 +143,28 @@ This creates an Aurora RDS cluster inside the MLOpsVPC, this database is used by
 
 ```typescript
 const dbConfig = {
-      dbClusterIdentifier: `${serviceName}-cluster`,
-      engineMode: 'serverless',
-      engine: 'aurora-mysql',
-      engineVersion: '5.7.12',
-      databaseName: dbName,
-      masterUsername: databaseCredentialsSecret.secretValueFromJson('username').toString(),
-      masterUserPassword: databaseCredentialsSecret.secretValueFromJson('password').toString(),
-      dbSubnetGroupName: dbSubnetGroup.dbSubnetGroupName,
-      scalingConfiguration: {
-        autoPause: true,
-        maxCapacity: 2,
-        minCapacity: 2,
-        secondsUntilAutoPause: 3600,
-      },
-      vpcSecurityGroupIds: [
-        dbClusterSecurityGroup.securityGroupId
-      ]
-    };
+  dbClusterIdentifier: `${serviceName}-cluster`,
+  engineMode: 'serverless',
+  engine: 'aurora-mysql',
+  engineVersion: '5.7.12',
+  databaseName: dbName,
+  masterUsername: databaseCredentialsSecret.secretValueFromJson('username').toString(),
+  masterUserPassword: databaseCredentialsSecret.secretValueFromJson('password').toString(),
+  dbSubnetGroupName: dbSubnetGroup.dbSubnetGroupName,
+  scalingConfiguration: {
+    autoPause: true,
+    maxCapacity: 2,
+    minCapacity: 2,
+    secondsUntilAutoPause: 3600,
+  },
+  vpcSecurityGroupIds: [
+    dbClusterSecurityGroup.securityGroupId
+  ]
+};
 
-    // 👇 RDS Cluster 
-    const rdsCluster = new CfnDBCluster(this, 'DBCluster', dbConfig);
-    rdsCluster.addDependsOn(dbSubnetGroup)
+// 👇 RDS Cluster 
+const rdsCluster = new CfnDBCluster(this, 'DBCluster', dbConfig);
+rdsCluster.addDependsOn(dbSubnetGroup)
 ```
 **ECS Cluster:**
 
@@ -173,32 +181,51 @@ This creates an Amazon ECS cluster inside the MLOpsVPC, we shall be running mlfl
 AWS Cloud Map allows us to register any application resources, such as microservices, and other cloud resources, with custom names. Using AWS Cloud Map, we can define custom names for our application microservice, and it maintains the updated location of the dynamically changing microservice.
 
 ```typescript
-    const dnsNamespace = new servicediscovery.PrivateDnsNamespace(this,"DnsNamespace",{
-        name: "http-api.local",
-        vpc: vpc,
-        description: "Private DnsNamespace for Microservices",
-      }
-    );
+const dnsNamespace = new servicediscovery.PrivateDnsNamespace(this,"DnsNamespace",{
+    name: "http-api.local",
+    vpc: vpc,
+    description: "Private DnsNamespace for Microservices",
+  }
+);
 ```
 **ECS Task Role:**
+
+We define in an IAM Role the set of permissions that our AWS Faregat Task is allowed to be granted.
+
 ```typescript
     const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+      ],
+      inlinePolicies: {
+        secretsManagerRestricted: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: [
+                mlflowCredentialsSecret.secretArn,
+                databaseCredentialsSecret.secretArn
+              ],
+              actions: [
+                "secretsmanager:GetResourcePolicy",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:ListSecretVersionIds"
+              ]
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: ["*"],
+              actions: ["secretsmanager:ListSecrets"]
+            })
+          ]
+        })
+      }
     });
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "service-role/AmazonECSTaskExecutionRolePolicy"
-      )
-    );
-
-    taskrole.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        "AmazonS3FullAccess"
-      )
-    )
 ```
-    
+
 **Task Definition:**
 
 A task definition is required to run Docker containers in Amazon ECS, we shall create the task definition (mlflowTaskDefinition) for the mlflow service.
@@ -214,7 +241,7 @@ A task definition is required to run Docker containers in Amazon ECS, we shall c
 ```
 **Log Groups:**
 
-Let us create a log group mlflowServiceLogGroup and the  associated log driver.
+Let us create a log group mlflowServiceLogGroup and the associated log driver.
 
 ```typescript
     const mlflowServiceLogGroup = new logs.LogGroup(this, "mlflowServiceLogGroup", {
@@ -240,34 +267,14 @@ Amazon Elastic Container Registry (ECR) is a fully managed container registry th
 ```  
 **Task Containers:**
 
-We shall define two containers in the mlflowTaskDefinition task definition.
+Let us define two containers in the `mlflowTaskDefinition` task definition, i.e. the NGINX container acting as reverse proxy, and the MLFlow container where the MLFlow server code is running.
+It is important to note how we securely pass credentials (generated and stored securely in AWS Secrets Manager) to the task definition.
+The ECS Task Role described earlier defines, among the others, the custom policy that grants to the Fargate task read-access to exclusively the two secrets needed by the containers.
+In this way, all credentials are transparently handled by Fargate, avoiding to expose any sensitive information to the task definition in clear text.
+
+For the interested reader on the topic on how to secure credentials with Fargate and AWS Secrets Manager, [this blogpost](https://aws.amazon.com/blogs/compute/securing-credentials-using-aws-secrets-manager-with-aws-fargate/) provide a more in depth discussion.
 
 ```typescript
-    const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
-      "mlflowContainer",
-      {
-        containerName: "mlflowContainer",
-        essential: true,
-        portMappings: [{
-          containerPort: containerPort,
-          protocol: ecs.Protocol.TCP,
-        }],
-        image: ecs.ContainerImage.fromAsset('../../src/mlops', {
-          repositoryName: containerRepository,
-        }),
-        
-        environment: {
-          'BUCKET': `s3://${mlOpsBucket.bucketName}`,
-          'HOST': rdsCluster.attrEndpointAddress,
-          'PORT': `${dbPort}`,
-          'DATABASE': dbName,
-          'USERNAME': databaseCredentialsSecret.secretValueFromJson('username').toString(),
-          'PASSWORD': databaseCredentialsSecret.secretValueFromJson('password').toString(),
-        },
-        logging: mlflowServiceLogDriver,
-      });
-
-    // 👇 nginx Task Container
     const nginxContainer = mlflowTaskDefinition.addContainer(
       "nginxContainer",
       {
@@ -279,12 +286,117 @@ We shall define two containers in the mlflowTaskDefinition task definition.
           containerPort: 80,
           protocol: ecs.Protocol.TCP
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/nginx', {
-          repositoryName: containerRepository,
+        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {
+          repositoryName: containerRepository
         }),
+        secrets: {
+          MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
+          MLFLOW_PASSWORD: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'password')
+        },
         logging: mlflowServiceLogDriver,
       }
     );
+
+    const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
+      "mlflowContainer",
+      {
+        containerName: "mlflowContainer",
+        essential: true,
+        // memoryReservationMiB: 512,
+        // cpu: 512,
+        portMappings: [{
+          containerPort: containerPort,
+          protocol: ecs.Protocol.TCP,
+        }],
+        image: ecs.ContainerImage.fromAsset('../../src/mlops', {
+          repositoryName: containerRepository,
+        }),
+
+        environment: {
+          'BUCKET': `s3://${mlOpsBucket.bucketName}`,
+          'HOST': rdsCluster.attrEndpointAddress,
+          'PORT': `${dbPort}`,
+          'DATABASE': dbName
+        },
+        secrets: {
+          USERNAME: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'username'),
+          PASSWORD: ecs.Secret.fromSecretsManager(databaseCredentialsSecret, 'password')
+        },
+        logging: mlflowServiceLogDriver,
+      });
+```
+
+***NGINX container:***
+
+The NGINX container acts as reverse proxy in front of the MLFlow container, providing also a simple and straighforward way to add Basic Auth to the MLFlow server.
+
+In order to securely inject the credentials auto-generated in AWS Secrets Manager into the container, the credential file for NGINX at container startup.
+The creation of the credential file for NGINX is handled by a script whose content is provided below:
+
+```bash
+#!/bin/sh
+echo -n $MLFLOW_USERNAME: >> /etc/nginx/.htpasswd
+openssl passwd -1 $MLFLOW_PASSWORD >> /etc/nginx/.htpasswd
+```
+
+In the `Dockerfile`, since we are using the `CMD` command to run the script at startup time, we must include `-g 'daemon off';` in order to allow nginx to stay in the foreground.
+As such, Docker can track the process properly (otherwise your container will stop immediately after starting).
+Generating the credential file at container startup rather then during the build process adds little overhead, however this is for the greater good, since we have now the security and the flexibility to change credentials too without the need to rebuild the container.
+
+```dockerfile
+FROM nginx:1.17.6
+RUN apt-get update
+RUN apt-get install openssl -y
+# Remove default Nginx config
+RUN rm /etc/nginx/nginx.conf
+# Copy the modified Nginx conf
+COPY nginx.conf /etc/nginx/nginx.conf
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
+
+COPY script.sh /root/script.sh
+RUN chmod +x /root/script.sh
+
+CMD /root/script.sh && nginx -g 'daemon off;'
+```
+
+Finally, let us highlight at an important setting in the `nginx.conf` file, i.e., `resolver 169.254.169.253;`, needed to allow the DNS resolution within the AWS VPC, so that the NGINX container can resolve the MLFlow container IP address via DNS.
+
+```
+location / {
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host $http_host;
+  proxy_redirect off;
+  resolver 169.254.169.253;
+  set $mlflow mlflowservice.http-api.local;
+  proxy_pass http://$mlflow:5000;
+  auth_basic           "Administrator’s Area";
+  auth_basic_user_file /etc/nginx/.htpasswd; 
+}
+
+```
+***MLFlow container:***
+
+The MLFlow container pip-install the MLFlow server. Then the MLFlow server is started at container startup.
+Similarly as we did for the NGINX credentials, we ensure that the credentials for the Aurora Database are injected at startup time by Fargate from the AWS Secrets Manager.
+
+```dockerfile
+FROM python:3.8.0
+
+RUN pip install \
+    mlflow==1.18.0 \
+    pymysql==1.0.2 \
+    boto3 && \
+    mkdir /mlflow/
+
+EXPOSE 5000
+
+CMD mlflow server \
+    --host 0.0.0.0 \
+    --port 5000 \
+    --default-artifact-root ${BUCKET} \
+    --backend-store-uri mysql+pymysql://${USERNAME}:${PASSWORD}@${HOST}:${PORT}/${DATABASE}
+
 ```
 
 **Security Groups:**
@@ -306,7 +418,8 @@ In order to control the inbound and outbound traffic to Fargate tasks, we shall 
 
 **Fargate Service:**
 
-Let us create an ECS Fargate service (mlflowService) based on the task definition created above. An Amazon ECS service enables you to run and maintain a specified number of instances of a task definition simultaneously in an Amazon ECS cluster. If any of your tasks should fail or stop for any reason, the Amazon ECS service scheduler launches another instance of your task definition to replace it in order to maintain the desired number of tasks in the service. 
+Let us create an ECS Fargate service (mlflowService) based on the task definition created above.
+An Amazon ECS service enables you to run and maintain a specified number of instances of a task definition simultaneously in an Amazon ECS cluster. If any of your tasks should fail or stop for any reason, the Amazon ECS service scheduler launches another instance of your task definition to replace it in order to maintain the desired number of tasks in the service. 
 
 ```typescript
     const mlflowService = new ecs.FargateService(this, "mlflowService", {
@@ -350,18 +463,23 @@ An ALB listener checks for connection requests from clients, using the protocol 
 ```
 **Target Groups:**
 
-We shall create a target group, mlflowServiceTargetGroupmlflowServiceTargetGroup for mlflowService microservice. 
+We shall create a target group, mlflowServiceTargetGroup pointing to the NGINX container. 
 
 ```typescript
     const mlflowServiceTargetGroup = this.httpApiListener.addTargets(
       "mlflowServiceTargetGroup",
       {
         healthCheck: {
-          path: "/",
-          //   interval: cdk.Duration.seconds(30),
-          //   timeout: cdk.Duration.seconds(3),
+          path: "/elb-status"
         },
-        targets: [mlflowService],
+        targets: [
+          mlflowService.loadBalancerTarget(
+            {
+              containerName: 'nginxContainer',
+              containerPort: 80
+            }
+          )
+        ],
         port: 80,
         protocol: ApplicationProtocol.HTTP,
       }
@@ -401,25 +519,7 @@ It is easy to expose our HTTP/HTTPS resources behind an Amazon VPC for access by
 **HttpApiStack**
 ![HttpApiStack](./images/HttpApiStack.png)
 
-Under the cdk/singleAccount/lib folder, open the sagemaker-vpc-stack.ts file and let us explore the following different CDK constructs.
-
-**SageMaker VPC:**
-
-This single line of code creates a SageMaker with two Public Subnets.
-
-👇 SageMaker VPC
-```typescript
-    const vpc = new ec2.Vpc(this, "SageMakerVPC", {
-      natGateways: 0,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: "ingress",
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-      ],
-    });
-```
+Under the cdk/nginxAuthentication/lib folder, open the http-gateway-stack.ts file and let us explore the following different CDK constructs.
 
 **HTTP Api:**
 
@@ -466,10 +566,18 @@ Now let us create the Http Api proxy routes using the Api integration.
       target: `integrations/${integration.ref}`,
     });
 ```
+## Create a SageMaker Notebook Instance with lifecycle configurations
+
+**Lifecycle configuration**
+
+**SageMaker execution role**
+
+**SageMaker Notebook Instance**
 
 ## Setting the region (optional)
 The default region is `us-west-2`. You can change the default region by setting up the `AWS_REGION` environment variable.
 
+### Working with Cloud9
 If you are working on Cloud9, you can specify the same region where your Cloud9 environment is running as follow:
 ```
 sudo yum install jq
@@ -477,20 +585,20 @@ export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/doc
 echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
 ```
 
-## Provisioning AWS resources using the AWS CDK
-
-```bash
-cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/singleAccount
-npm run build
-cdk bootstrap
-```
-
 Before deploying, and since we building the mlflow container image locally, the Cloud9 default disk space, i.e. 20GB, is not enough.
 To resize on the fly without rebooting the instance, you can run the following script specifying a new desired size.
 ```
 ./resize-cloud9.sh 40
 ```
-Where `40` represents the new desired disk size.
+Where `40` represents the new desired disk size in GB.
+
+## Provisioning AWS resources using the AWS CDK
+
+```bash
+cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
+npm run build
+cdk bootstrap
+```
 
 Finally, we are ready to deploy our stack.
 ```
@@ -501,13 +609,12 @@ Finally, we are ready to deploy our stack.
 
 TBD
 
-
 ## Cleanup
 
 To clean up the resources created by the CDK, run the following commands in a terminal of your Cloud9 instance:
 
 ```bash
-cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/singleAccount
+cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
 ./destroy.sh
 ```
 
