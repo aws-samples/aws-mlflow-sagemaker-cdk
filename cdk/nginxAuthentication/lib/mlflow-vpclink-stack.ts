@@ -5,7 +5,6 @@ import * as ecs from "@aws-cdk/aws-ecs";
 import * as iam from "@aws-cdk/aws-iam";
 import * as logs from "@aws-cdk/aws-logs";
 import * as servicediscovery from "@aws-cdk/aws-servicediscovery";
-import * as ssm from '@aws-cdk/aws-ssm';
 import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
 import * as s3 from '@aws-cdk/aws-s3';
 import { CfnDBCluster, CfnDBSubnetGroup } from '@aws-cdk/aws-rds';
@@ -113,12 +112,6 @@ export class MLflowVpclinkStack extends cdk.Stack {
         includeSpace: false,
         generateStringKey: 'password'
       }
-    });
-
-    // 👇 DB Credentials parameter
-    new ssm.StringParameter(this, 'DBCredentialsArn', {
-      parameterName: `${serviceName}-credentials-arn`,
-      stringValue: databaseCredentialsSecret.secretArn,
     });
 
     // 👇 DB SecurityGroup
