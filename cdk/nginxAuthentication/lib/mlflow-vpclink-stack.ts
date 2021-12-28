@@ -19,6 +19,8 @@ const serviceName = "mlflowService"
 const cidr = "10.0.0.0/16"
 const containerPort = 5000
 
+const mlflowUsername = "admin"
+
 export class MLflowVpclinkStack extends cdk.Stack {
 
   // 👇 Export Vpclink and ALB Listener
@@ -32,7 +34,6 @@ export class MLflowVpclinkStack extends cdk.Stack {
     scope: cdk.Construct, 
     id: string,
     mlflowSecretName: string,
-    mlflowUsername: string,
     props?: cdk.StackProps
   ) {
     super(scope, id, props);

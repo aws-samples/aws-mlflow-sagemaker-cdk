@@ -9,7 +9,6 @@ export class SageMakerNotebookInstanceStack extends cdk.Stack {
         id: string,
         api: apig.HttpApi,
         mlflowSecretName: string,
-        mlflowUsername: string,
         mlflowSecretArn: string,
         props?: cdk.StackProps
     ){
