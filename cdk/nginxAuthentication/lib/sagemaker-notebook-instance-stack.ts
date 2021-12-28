@@ -3,7 +3,7 @@ import * as cdk from "@aws-cdk/core";
 import * as iam from "@aws-cdk/aws-iam";
 import * as apig from "@aws-cdk/aws-apigatewayv2";
 
-export class SageMakerNotebookInstance extends cdk.Stack {
+export class SageMakerNotebookInstanceStack extends cdk.Stack {
     constructor(
         scope: cdk.Construct,
         id: string,
@@ -15,7 +15,7 @@ export class SageMakerNotebookInstance extends cdk.Stack {
     ){
         super(scope, id, props);
         
-        // SageMaker Executio Role
+        // SageMaker Execution Role
         const sagemakerExecutionRole = new iam.Role(this, "sagemaker-execution-role", {
           assumedBy: new iam.ServicePrincipal("sagemaker.amazonaws.com"),
           managedPolicies: [
@@ -54,7 +54,7 @@ export class SageMakerNotebookInstance extends cdk.Stack {
           },
         });
         
-        /** Create the SageMaker Notebook Lifecycle Config */
+        // Lifecycle Config
         const lifecycleConfig = new sagemaker.CfnNotebookInstanceLifecycleConfig(
           this, 
           'lifecycle-config',
@@ -64,33 +64,24 @@ export class SageMakerNotebookInstance extends cdk.Stack {
               {
                 content: cdk.Fn.base64(
 `echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc
-echo "export MLFLOW_SECRET_NAME=${mlflowSecretName}" | tee -a /home/ec2-user/.bashrc
-echo "export MLFLOW_USERNAME=${mlflowUsername}" | tee -a /home/ec2-user/.bashrc`
-                )
+echo "export MLFLOW_SECRET_NAME=${mlflowSecretName}" | tee -a /home/ec2-user/.bashrc`                )
               }
             ],
-            onStart: [
-              {
-                content: cdk.Fn.base64(
-`export MLFLOWSERVER=${api.apiEndpoint}
-export MLFLOW_SECRET_NAME=${mlflowSecretName}
-export MLFLOW_USERNAME=${mlflowUsername}`
-                )
-              }
-            ]
+            onStart: []
           });
     
+        // SageMaker Notebook Instance
         const notebook = new sagemaker.CfnNotebookInstance(
-                this,
-                'MlflowNotebook',
-                {
-                    roleArn: sagemakerExecutionRole.roleArn,
-                    instanceType: "ml.t3.large",
-                    volumeSizeInGb: 40,
-                    notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
-                    defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
-                    lifecycleConfigName: lifecycleConfig.notebookInstanceLifecycleConfigName
-                }
-            );
+          this,
+          'MlflowNotebook',
+          {
+              roleArn: sagemakerExecutionRole.roleArn,
+              instanceType: "ml.t3.large",
+              volumeSizeInGb: 40,
+              notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
+              defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
+              lifecycleConfigName: lifecycleConfig.notebookInstanceLifecycleConfigName
+          }
+      );
     }
 }
