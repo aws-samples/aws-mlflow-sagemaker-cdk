@@ -38,35 +38,31 @@ export class MLflowVpclinkStack extends cdk.Stack {
   ) {
     super(scope, id, props);
 
-    // 👇 VPC
+    // VPC
     const vpc = new ec2.Vpc(this, 'MLOpsVPC', {
       cidr: cidr,
       natGateways: 1,
       maxAzs: 2,
       subnetConfiguration: [
         {
-          name: 'public-subnet-1',
+          name: 'public',
           subnetType: ec2.SubnetType.PUBLIC,
           cidrMask: 24,
         },
         {
-          name: 'private-subnet-1',
+          name: 'private',
           subnetType: ec2.SubnetType.PRIVATE,
           cidrMask: 26,
         },
         {
-          name: 'isolated-subnet-1',
+          name: 'isolated',
           subnetType: ec2.SubnetType.ISOLATED,
           cidrMask: 28,
         },
       ],
     });
 
-    vpc.addGatewayEndpoint("S3Endpoint", {
-      service: ec2.GatewayVpcEndpointAwsService.S3
-    });
-
-    // 👇 S3 bucket 
+    // S3 bucket
     const mlOpsBucket = new s3.Bucket(this, "mlOpsBucket", {
       versioned: false,
       bucketName: this.bucketName,
@@ -77,19 +73,19 @@ export class MLflowVpclinkStack extends cdk.Stack {
       encryption: s3.BucketEncryption.KMS_MANAGED
     })
 
+    // DB SubnetGroup
     const subnetIds: string[] = [];
     vpc.isolatedSubnets.forEach((subnet, index) => {
       subnetIds.push(subnet.subnetId);
     });
 
-    // 👇 DB SubnetGroup
     const dbSubnetGroup: CfnDBSubnetGroup = new CfnDBSubnetGroup(this, 'AuroraSubnetGroup', {
       dbSubnetGroupDescription: 'Subnet group to access aurora',
       dbSubnetGroupName: 'aurora-serverless-subnet-group',
       subnetIds
     });
 
-    // 👇 DB Credentials
+    // DB Credentials
     const databaseCredentialsSecret = new secretsmanager.Secret(this, 'DBCredentialsSecret', {
       secretName: `${serviceName}-credentials`,
       generateSecretString: {
@@ -102,7 +98,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       }
     });
     
-        //Mflow credentials
+    // Mflow credentials
     const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MlflowCredentialsSecret', {
       secretName: mlflowSecretName,
       generateSecretString: {
