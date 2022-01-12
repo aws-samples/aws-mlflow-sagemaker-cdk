@@ -120,29 +120,31 @@ If you would like to familiarize yourself the [CDKWorkshop](https://cdkworkshop.
 Using Cloud9 environment, open a new Terminal and use the following commands:
 ```bash
 cd aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
-npm install -g aws-cdk@1.124.0
+npm install -g aws-cdk@1.139.0 --force
 cdk --version
 ```
 
-Take a note of the latest version that you install, at the time of writing this post it is 1.124.0. Open the package.json file and replace the version “1.124.0” of the following modules with the latest version that you have installed above.
+Take a note of the latest version that you install, at the time of writing this post it is `1.139.0`. Open the package.json file and replace the version “1.139.0” of the following modules with the latest version that you have installed above.
 
 ```typescript
-"@aws-cdk/assert": "1.124.0",
-"@aws-cdk/aws-apigatewayv2": "1.124.0",
-"@aws-cdk/aws-ec2": "1.124.0",
-"@aws-cdk/aws-ecr": "1.124.0",
-"@aws-cdk/aws-ecs": "1.124.0",
-"@aws-cdk/aws-elasticloadbalancingv2": "1.124.0",
-"@aws-cdk/aws-iam": "1.124.0",
-"@aws-cdk/aws-logs": "1.124.0",
-"@aws-cdk/aws-sagemaker": "1.124.0",
-"@aws-cdk/aws-servicediscovery": "1.124.0",
-"@aws-cdk/core": "1.124.0",
+"@aws-cdk/assert": "1.139.0",
+"@aws-cdk/aws-apigatewayv2": "1.139.0",
+"@aws-cdk/aws-ec2": "1.139.0",
+"@aws-cdk/aws-ecr": "1.139.0",
+"@aws-cdk/aws-ecs": "1.139.0",
+"@aws-cdk/aws-elasticloadbalancingv2": "1.139.0",
+"@aws-cdk/aws-iam": "1.139.0",
+"@aws-cdk/aws-logs": "1.139.0",
+"@aws-cdk/aws-sagemaker": "1.139.0",
+"@aws-cdk/aws-servicediscovery": "1.139.0",
+"@aws-cdk/core": "1.139.0",
 ```
+
+This will install all the latest CDK modules under the `node_modules` directory.
+
 ```bash
 npm install
 ```
-This will install all the latest CDK modules under the node_modules directory.
 
 ### Creating AWS resources using the CDK
 
@@ -357,19 +359,6 @@ const mlflowServiceLogDriver = new ecs.AwsLogDriver({
   streamPrefix: "mlflowService",
 });
 ```
-**ECR Repository:**
-
-Amazon Elastic Container Registry (ECR) is a fully managed container registry that makes it easy to store, manage, share, and deploy container images containing the business logic of the microservices.
-Let us import the repository `mlflowServiceRepo`.
-
-```typescript
-// Amazon ECR Repository
-const mlflowservicerepo = ecr.Repository.fromRepositoryName(
-  this,
-  "mlflowServiceRepo",
-  "mlflow-Service"
-);
-```  
 **Task Containers:**
 
 Let us define two containers in the `mlflowTaskDefinition` task definition, i.e. the NGINX container responsible to authenticate requests and acting as reverse proxy, and the MLFlow container where the MLFlow server application code is running.
@@ -391,9 +380,7 @@ const nginxContainer = mlflowTaskDefinition.addContainer(
       containerPort: 80,
       protocol: ecs.Protocol.TCP
     }],
-    image: ecs.ContainerImage.fromAsset('../../src/nginx', {
-      repositoryName: containerRepository
-    }),
+    image: ecs.ContainerImage.fromAsset('../../src/nginx', {}),
     secrets: {
       MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
       MLFLOW_PASSWORD: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'password')
@@ -413,10 +400,7 @@ const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
       containerPort: containerPort,
       protocol: ecs.Protocol.TCP,
     }],
-    image: ecs.ContainerImage.fromAsset('../../src/mlflow', {
-      repositoryName: containerRepository,
-    }),
-
+    image: ecs.ContainerImage.fromAsset('../../src/mlflow', {}),
     environment: {
       'BUCKET': `s3://${mlOpsBucket.bucketName}`,
       'HOST': rdsCluster.attrEndpointAddress,
@@ -801,9 +785,13 @@ aws secretsmanager get-secret-value --secret-id mlflow-credentials | jq -r '.Sec
 ```
 ### MLFlow / Amazon SageMaker integration
 
-In the AWS console, navigate to the SageMaker and open JupiterLab in the SageMaker Notebook called `MLFlow-SageMaker-PrivateLink` created in the step previous step.
+In the AWS console, navigate to Amazon SageMaker and open JupiterLab in the SageMaker Notebook called `MLFlow-SageMaker-PrivateLink` created in the previous step as shown below.
+
+![SageMakerNotebookInstance](./images/SageMakerNotebookInstance.png)
+*Fig 5 - Navigate to the Amazon SageMaker Notebook Instance*
+
 Navigate to the `./aws-mlflow-sagemaker-cdk/lab/nginxBasicAuth` folder and open the open the `sagemaker_and_mlflow.ipynb` notebook.
-You can see how to train in Amazon SageMaker and store the resulting models in MLFlow after retrieving the credentials at runtime.
+You can see how to train in Amazon SageMaker and store the resulting models in MLFlow after retrieving the credentials at runtime and how to deploy models stored in Amazon SageMaker endpoints using the MLFlow SDK.
 
 ## Cleanup
 
