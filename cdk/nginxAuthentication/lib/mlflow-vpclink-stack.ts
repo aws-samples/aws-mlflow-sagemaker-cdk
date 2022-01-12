@@ -13,7 +13,6 @@ const { ApplicationProtocol } = elbv2;
 const dbName = "mlflowdb"
 const dbPort = 3306
 const dbUsername = "master"
-const containerRepository = "mlflowRepository"
 const clusterName = "mlflowCluster"
 const serviceName = "mlflowService"
 const cidr = "10.0.0.0/16"
@@ -224,9 +223,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
           containerPort: 80,
           protocol: ecs.Protocol.TCP
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {
-          repositoryName: containerRepository
-        }),
+        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {}),
         secrets: {
           MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
           MLFLOW_PASSWORD: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'password')
@@ -247,10 +244,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
           containerPort: containerPort,
           protocol: ecs.Protocol.TCP,
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/mlflow', {
-          repositoryName: containerRepository,
-        }),
-        
+        image: ecs.ContainerImage.fromAsset('../../src/mlflow', {}),
         environment: {
           'BUCKET': `s3://${mlOpsBucket.bucketName}`,
           'HOST': rdsCluster.attrEndpointAddress,
@@ -284,7 +278,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       taskDefinition: mlflowTaskDefinition,
       assignPublicIp: false,
       desiredCount: 2,
-      securityGroup: mlflowServiceSecGrp,
+      securityGroups: [mlflowServiceSecGrp],
       cloudMapOptions: {
         name: "mlflowService",
         cloudMapNamespace: dnsNamespace,
