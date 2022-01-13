@@ -27,7 +27,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
   public readonly httpApiListener: elbv2.ApplicationListener;
   public readonly mlflowSecretArn: string;
 
-  readonly bucketName = `mlops-${this.account}`
+  readonly bucketName = `mlops-${this.account}-${this.region}`
 
   constructor(
     scope: cdk.Construct, 
