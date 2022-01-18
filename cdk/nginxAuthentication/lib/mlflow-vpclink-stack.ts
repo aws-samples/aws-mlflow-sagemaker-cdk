@@ -1,13 +1,15 @@
-import * as cdk from "@aws-cdk/core";
-import * as elbv2 from "@aws-cdk/aws-elasticloadbalancingv2";
-import * as ec2 from "@aws-cdk/aws-ec2";
-import * as ecs from "@aws-cdk/aws-ecs";
-import * as iam from "@aws-cdk/aws-iam";
-import * as logs from "@aws-cdk/aws-logs";
-import * as servicediscovery from "@aws-cdk/aws-servicediscovery";
-import * as secretsmanager from '@aws-cdk/aws-secretsmanager';
-import * as s3 from '@aws-cdk/aws-s3';
-import { CfnDBCluster, CfnDBSubnetGroup } from '@aws-cdk/aws-rds';
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { CfnDBCluster, CfnDBSubnetGroup } from 'aws-cdk-lib/aws-rds';
 
 const { ApplicationProtocol } = elbv2;
 const dbName = "mlflowdb"
@@ -22,15 +24,15 @@ const mlflowUsername = "admin"
 
 export class MLflowVpclinkStack extends cdk.Stack {
 
-  // 👇 Export Vpclink and ALB Listener
-  public readonly httpVpcLink: cdk.CfnResource;
+  // Export Vpc, ALB Listener, and Mlflow secret ARN
   public readonly httpApiListener: elbv2.ApplicationListener;
   public readonly mlflowSecretArn: string;
+  public readonly vpc: ec2.Vpc;
 
   readonly bucketName = `mlops-${this.account}-${this.region}`
 
   constructor(
-    scope: cdk.Construct, 
+    scope: Construct, 
     id: string,
     mlflowSecretName: string,
     props?: cdk.StackProps
@@ -38,7 +40,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
     super(scope, id, props);
 
     // VPC
-    const vpc = new ec2.Vpc(this, 'MLOpsVPC', {
+    this.vpc = new ec2.Vpc(this, 'MLOpsVPC', {
       cidr: cidr,
       natGateways: 1,
       maxAzs: 2,
@@ -74,7 +76,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
 
     // DB SubnetGroup
     const subnetIds: string[] = [];
-    vpc.isolatedSubnets.forEach((subnet, index) => {
+    this.vpc.isolatedSubnets.forEach((subnet, index) => {
       subnetIds.push(subnet.subnetId);
     });
 
@@ -111,7 +113,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
     });
 
     // 👇 DB SecurityGroup
-    const dbClusterSecurityGroup = new ec2.SecurityGroup(this, 'DBClusterSecurityGroup', { vpc });
+    const dbClusterSecurityGroup = new ec2.SecurityGroup(this, 'DBClusterSecurityGroup', { vpc: this.vpc });
     dbClusterSecurityGroup.addIngressRule(ec2.Peer.ipv4(cidr), ec2.Port.tcp(dbPort));
 
     const dbConfig = {
@@ -142,7 +144,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
 
     // 👇 ECS Cluster
     const cluster = new ecs.Cluster(this, "Fargate Cluster", {
-      vpc: vpc,
+      vpc: this.vpc,
       clusterName: clusterName,
     });
 
@@ -152,7 +154,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       "DnsNamespace",
       {
         name: "http-api.local",
-        vpc: vpc,
+        vpc: this.vpc,
         description: "Private DnsNamespace for Microservices",
       }
     );
@@ -265,7 +267,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       {
         allowAllOutbound: true,
         securityGroupName: "mlflowServiceSecurityGroup",
-        vpc: vpc,
+        vpc: this.vpc,
       }
     );
     mlflowServiceSecGrp.connections.allowFromAnyIpv4(ec2.Port.tcp(containerPort));
@@ -290,7 +292,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       this,
       "httpapiInternalALB",
       {
-        vpc: vpc,
+        vpc: this.vpc,
         internetFacing: false,
       }
     );
@@ -329,16 +331,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
       scaleInCooldown: cdk.Duration.seconds(60),
       scaleOutCooldown: cdk.Duration.seconds(60),
     });
-
-    // 👇 VPC Link
-    this.httpVpcLink = new cdk.CfnResource(this, "HttpVpcLink", {
-      type: "AWS::ApiGatewayV2::VpcLink",
-      properties: {
-        Name: "http-api-vpclink",
-        SubnetIds: vpc.privateSubnets.map((m) => m.subnetId),
-      },
-    });
-    
+   
     this.mlflowSecretArn = mlflowCredentialsSecret.secretArn
 
     new cdk.CfnOutput(this, "ALB Dns Name : ", {

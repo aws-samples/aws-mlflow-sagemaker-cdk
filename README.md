@@ -120,24 +120,16 @@ If you would like to familiarize yourself the [CDKWorkshop](https://cdkworkshop.
 Using Cloud9 environment, open a new Terminal and use the following commands:
 ```bash
 cd aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
-npm install -g aws-cdk@1.139.0 --force
+npm install -g aws-cdk@2.8.0 --force
 cdk --version
 ```
 
-Take a note of the latest version that you install, at the time of writing this post it is `1.139.0`. Open the package.json file and replace the version “1.139.0” of the following modules with the latest version that you have installed above.
+Take a note of the latest version that you install, at the time of writing this post it is `2.8.0`. Open the package.json file and replace the version “2.8.0” of the following modules with the latest version that you have installed above.
 
 ```typescript
-"@aws-cdk/assert": "1.139.0",
-"@aws-cdk/aws-apigatewayv2": "1.139.0",
-"@aws-cdk/aws-ec2": "1.139.0",
-"@aws-cdk/aws-ecr": "1.139.0",
-"@aws-cdk/aws-ecs": "1.139.0",
-"@aws-cdk/aws-elasticloadbalancingv2": "1.139.0",
-"@aws-cdk/aws-iam": "1.139.0",
-"@aws-cdk/aws-logs": "1.139.0",
-"@aws-cdk/aws-sagemaker": "1.139.0",
-"@aws-cdk/aws-servicediscovery": "1.139.0",
-"@aws-cdk/core": "1.139.0",
+"aws-cdk-lib": "2.8.0",
+"@aws-cdk/aws-apigatewayv2-alpha": "2.8.0-alpha.0",
+"@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.8.0-alpha.0",
 ```
 
 This will install all the latest CDK modules under the `node_modules` directory.
@@ -163,14 +155,14 @@ Let us discuss these stacks one by one.
 
 Under the cdk/nginxAuthentication/lib folder, open the `mlflow-vpclink-stack.ts` file and let us explore the following different CDK constructs.
 
-Export Vpclink and ALB Listener:
 ```typescript
- public readonly httpVpcLink: cdk.CfnResource;
- public readonly httpApiListener: elbv2.ApplicationListener;
- public readonly mlflowSecretArn: string;
+// Export Vpc, ALB Listener, and Mlflow secret ARN
+  public readonly httpApiListener: elbv2.ApplicationListener;
+  public readonly mlflowSecretArn: string;
+  public readonly vpc: ec2.Vpc;
  ```
 
-These three variables enable us to export the provisioned Vpclink along with the ALB Listener from **MLflowVpclinkStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack,
+These three variables enable us to export the provisioned Vpc along with the ALB Listener from **MLflowVpclinkStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack,
 as well as the ARN of the MLFlow credentials in the **SageMakerNotebookInstanceStack**.
 
 **VPC:**
@@ -589,7 +581,14 @@ autoScaling.scaleOnCpuUtilization('CpuScaling', {
 });
 ```
 
-***VPC Link:***
+### **HttpApiStack**
+![HttpApiStack](./images/HttpApiStack.png)
+*Fig 3 - Amazon HTTP API Gateway*
+
+Under the cdk/nginxAuthentication/lib folder, open the `http-gateway-stack.ts` file and let us explore the following different CDK constructs.
+
+
+**VPC Link:**
 
 It is easy to expose our HTTP/HTTPS resources behind an Amazon VPC for access by clients outside of the Producer VPC using API Gateway private integration.
 To extend access to our private VPC resources beyond the VPC boundaries, we can create an HTTP API with private integration for open access or controlled access.
@@ -608,55 +607,41 @@ this.httpVpcLink = new cdk.CfnResource(this, "HttpVpcLink", {
 });
 ```
 
-### **HttpApiStack**
-![HttpApiStack](./images/HttpApiStack.png)
-*Fig 3 - Amazon HTTP API Gateway*
-
-Under the cdk/nginxAuthentication/lib folder, open the `http-gateway-stack.ts` file and let us explore the following different CDK constructs.
-
-**HTTP Api:**
-
-Let us create an Http Api based on a default stage.
-
-```typescript
-// HTTP API
-const api = new apig.HttpApi(this, "mlflow-api", {
-  createDefaultStage: true,
-});
-```
-
 **API Integration:**
 
 The following construct will integrate the Amazon HTTP API Gateway with the backend mlflowService using the Vpclink and the Application Loadbalancer Listener.
 
 ```typescript
-// HTTP Api Integration
-const integration = new apig.CfnIntegration(
-  this,
-  "MLflowIntegration",
-  {
-    apiId: api.httpApiId,
-    connectionId: httpVpcLink.ref,
-    connectionType: "VPC_LINK",
-    description: "API Integration",
-    integrationMethod: "ANY",
-    integrationType: "HTTP_PROXY",
-    integrationUri: httpApiListener.listenerArn,
-    payloadFormatVersion: "1.0",
-  }
-);
+// HTTP Integration with VpcLink
+const mlflowIntegration = new HttpAlbIntegration(
+  'MLflowIntegration',
+  httpApiListener,
+  { vpcLink: mlflowVpcLink }
+)
 ```
+
+**HTTP Api:**
+
+Let us create an Http Api based on a default stage with the an HTTP integration on the VpcLink
+
+```typescript
+// HTTP Api
+this.api = new apig.HttpApi(this, "mlflow-api", {
+  createDefaultStage: true,
+  defaultIntegration: mlflowIntegration
+});
+```
+
 **API Route:**
 
 Now let us create the Http Api proxy routes targeting the Api integration.
 
 ```typescript
 // HTTP Api Route
-new apig.CfnRoute(this, "Route", {
-  apiId: api.httpApiId,
-  routeKey: "ANY /{proxy+}",
-  target: `integrations/${integration.ref}`,
-});
+this.api.addRoutes({
+  integration: mlflowIntegration,
+  path: "/{proxy+}"
+})
 ```
 
 After the **MLflowVpclinkStack** and the **HttpApiGatewayStack** are deployed, the MLflow server is finally accessible. 
