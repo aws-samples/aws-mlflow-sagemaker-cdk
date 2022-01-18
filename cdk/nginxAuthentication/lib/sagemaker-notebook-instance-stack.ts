@@ -1,11 +1,14 @@
-import * as sagemaker from '@aws-cdk/aws-sagemaker';
-import * as cdk from "@aws-cdk/core";
-import * as iam from "@aws-cdk/aws-iam";
-import * as apig from "@aws-cdk/aws-apigatewayv2";
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+
+import * as sagemaker from 'aws-cdk-lib/aws-sagemaker';
+
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as apig from "@aws-cdk/aws-apigatewayv2-alpha";
 
 export class SageMakerNotebookInstanceStack extends cdk.Stack {
     constructor(
-        scope: cdk.Construct,
+        scope: Construct,
         id: string,
         api: apig.HttpApi,
         mlflowSecretName: string,

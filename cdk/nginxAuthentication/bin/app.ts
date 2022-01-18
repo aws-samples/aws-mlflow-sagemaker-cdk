@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
-import * as cdk from '@aws-cdk/core';
+import * as cdk from 'aws-cdk-lib';
 import { MLflowVpclinkStack } from '../lib/mlflow-vpclink-stack';
 import { HttpGatewayStack } from '../lib/http-gateway-stack';
 import { SageMakerNotebookInstanceStack } from '../lib/sagemaker-notebook-instance-stack';
@@ -20,7 +20,7 @@ const mlflowVpclinkStack = new MLflowVpclinkStack(
 const httpGatewayStack = new HttpGatewayStack(
     app,
     'HttpGatewayStack',
-    mlflowVpclinkStack.httpVpcLink,
+    mlflowVpclinkStack.vpc,
     mlflowVpclinkStack.httpApiListener,
     { env: env }
 );
