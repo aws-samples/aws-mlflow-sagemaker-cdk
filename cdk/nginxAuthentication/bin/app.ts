@@ -6,7 +6,7 @@ import { HttpGatewayStack } from '../lib/http-gateway-stack';
 import { SageMakerNotebookInstanceStack } from '../lib/sagemaker-notebook-instance-stack';
 const env = { region: (process.env['AWS_REGION'] || 'us-west-2') };
 
-const mlflowSecretName = 'mlflow-credentials'
+const mlflowSecretName = 'mlflow-server-credentials'
 
 const app = new cdk.App();
 
