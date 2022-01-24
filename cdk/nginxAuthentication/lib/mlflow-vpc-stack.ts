@@ -22,7 +22,7 @@ const containerPort = 5000
 
 const mlflowUsername = "admin"
 
-export class MLflowVpclinkStack extends cdk.Stack {
+export class MLflowVpcStack extends cdk.Stack {
 
   // Export Vpc, ALB Listener, and Mlflow secret ARN
   public readonly httpApiListener: elbv2.ApplicationListener;
