@@ -88,7 +88,7 @@ export class MLflowVpcStack extends cdk.Stack {
 
     // DB Credentials
     const databaseCredentialsSecret = new secretsmanager.Secret(this, 'DBCredentialsSecret', {
-      secretName: `${serviceName}-credentials`,
+      secretName: `mlflow-database-credentials`,
       generateSecretString: {
         secretStringTemplate: JSON.stringify({
           username: dbUsername,
