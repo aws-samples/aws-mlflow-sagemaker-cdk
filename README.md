@@ -57,10 +57,10 @@ In order to implement the instructions laid out in this post, you will need the 
 ## Architecture
 As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpclinkStack**, **HttpApiGatewayStack**, and a **SageMakerNotebookInstanceStack**.
 
-Inside the `MLflowVpclinkStack`, we deploy mlflowService using Amazon Fargate within the MLOps VPC.
+Inside the `MLflowVpclinkStack`, we deploy mlflowService using Amazon Fargate within the MLFlowVPC.
 An internal load balancer distributes external incoming application traffic to the mlflowService.
 In order to implement the private integration we create a VpcLink to encapsulate connections between API Gateway and mlflowService.
-Inside the `SageMakerVpcStack`, we create an HTTP API Gateway that integrates with the mlflowService Amazon Fargate service running inside the `MLflowVpclinkStack` using the Vpclink and internal load balancer listener.
+Inside the `HttpApiGatewayStack`, we create an HTTP API Gateway that integrates with the mlflowService Amazon Fargate service running inside the `MLflowVpclinkStack` using the Vpclink and internal load balancer listener.
 
 ![Architecture](./images/Architecture-1.png)
 *Fig 1 - Architecture*
@@ -99,7 +99,7 @@ However, you can change the default region by setting up the `AWS_REGION` enviro
 When working on Cloud9, you can specify the same region where your Cloud9 environment is running as follow:
 
 ```
-sudo yum install jq
+sudo yum install jq -y
 export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')
 echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
 ```
@@ -167,13 +167,13 @@ as well as the ARN of the MLFlow credentials in the **SageMakerNotebookInstanceS
 
 **VPC:**
 
-This code creates a MLOpsVPC with public, private, and isolted subnets across 2 availability zones.
+This code creates a MLFlowVPC with public, private, and isolted subnets across 2 availability zones.
 The public subnets are used to run the NAT gateway which allows our components in the private subnets to get internet connectivity.
 The application code and the database run in the private subnets and isolated subnets respectively.
 
 ```typescript
 // VPC
-const vpc = new ec2.Vpc(this, 'MLOpsVPC', {
+const vpc = new ec2.Vpc(this, 'MLFlowVPC', {
   cidr: cidr,
   natGateways: 1,
   maxAzs: 2,
@@ -232,7 +232,7 @@ const mlflowCredentialsSecret = new secretsmanager.Secret(this, 'MlflowCredentia
 
 **Aurora RDS Cluster:**
 
-This creates an Aurora RDS cluster inside the MLOpsVPC.
+This creates an Aurora RDS cluster inside the MLFlowVPC.
 This database is used by MLflow to store metadata about the ML model generated in our experiments.
 
 ```typescript
@@ -263,7 +263,7 @@ rdsCluster.addDependsOn(dbSubnetGroup)
 
 **ECS Cluster:**
 
-This creates an Amazon ECS cluster inside the MLOpsVPC, we shall be running mlflow service inside this ECS cluster using AWS Fargate.
+This creates an Amazon ECS cluster inside the MLFlowVPC, we shall be running mlflow service inside this ECS cluster using AWS Fargate.
 
 ```typescript
 const cluster = new ecs.Cluster(this, "Fargate Cluster" , {
@@ -394,7 +394,7 @@ const mlflowServiceContainer = mlflowTaskDefinition.addContainer(
     }],
     image: ecs.ContainerImage.fromAsset('../../src/mlflow', {}),
     environment: {
-      'BUCKET': `s3://${mlOpsBucket.bucketName}`,
+      'BUCKET': `s3://${mlFlowBucket.bucketName}`,
       'HOST': rdsCluster.attrEndpointAddress,
       'PORT': `${dbPort}`,
       'DATABASE': dbName
@@ -595,7 +595,7 @@ To extend access to our private VPC resources beyond the VPC boundaries, we can 
 The private integration uses an API Gateway resource of VpcLink to encapsulate connections between API Gateway and targeted VPC resources.
 As an owner of a VPC resource, we are responsible for creating an Application Load Balancer in our Producer VPC and adding a VPC resource as a target of an Application Load Balancer's listener.
 As an HTTP API developer, to set up an HTTP API with the private integration, we are responsible for creating a VpcLink targeting the specified Application Load Balancer and then treating the VpcLink as an effective integration endpoint.
-Let us create a Vpclink based on the private subnets of the MLOpsVPC.
+Let us create a Vpclink based on the private subnets of the MLFlowVPC.
 
 ```typescript
 this.httpVpcLink = new cdk.CfnResource(this, "HttpVpcLink", {
