@@ -29,7 +29,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
   public readonly mlflowSecretArn: string;
   public readonly vpc: ec2.Vpc;
 
-  readonly bucketName = `mlops-${this.account}-${this.region}`
+  readonly bucketName = `mlflow-${this.account}-${this.region}`
 
   constructor(
     scope: Construct, 
@@ -40,7 +40,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
     super(scope, id, props);
 
     // VPC
-    this.vpc = new ec2.Vpc(this, 'MLOpsVPC', {
+    this.vpc = new ec2.Vpc(this, 'MLFlowVPC', {
       cidr: cidr,
       natGateways: 1,
       maxAzs: 2,
@@ -64,7 +64,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
     });
 
     // S3 bucket
-    const mlOpsBucket = new s3.Bucket(this, "mlOpsBucket", {
+    const mlFlowBucket = new s3.Bucket(this, "mlFlowBucket", {
       versioned: false,
       bucketName: this.bucketName,
       publicReadAccess: false,
@@ -248,7 +248,7 @@ export class MLflowVpclinkStack extends cdk.Stack {
         }],
         image: ecs.ContainerImage.fromAsset('../../src/mlflow', {}),
         environment: {
-          'BUCKET': `s3://${mlOpsBucket.bucketName}`,
+          'BUCKET': `s3://${mlFlowBucket.bucketName}`,
           'HOST': rdsCluster.attrEndpointAddress,
           'PORT': `${dbPort}`,
           'DATABASE': dbName
