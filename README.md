@@ -16,7 +16,7 @@ MLflow is an open-source platform to manage the ML lifecycle, including experime
 
 ## Architecture
 
-In this project, we show how to deploy MLflow on [AWS Fargate](https://aws.amazon.com/fargate) and use it during your ML project with [Amazon SageMaker](https://aws.amazon.com/sagemaker).
+In this project, we show how to deploy MLflow on [AWS Fargate](https://aws.amazon.com/fargate) with basic authentication and use it during your ML project with [Amazon SageMaker](https://aws.amazon.com/sagemaker).
 Our solution is based on three main high level components: 
 * MLFlow server;
 * HTTP API Gateway; and
@@ -55,14 +55,14 @@ In order to implement the instructions laid out in this post, you will need the 
 - an IAM user with Administrator permissions
 
 ## Architecture
-As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpclinkStack**, **HttpApiGatewayStack**, and a **SageMakerNotebookInstanceStack**.
+As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpcStack**, **HttpApiGatewayStack**, and a **SageMakerNotebookInstanceStack**.
 
-Inside the `MLflowVpclinkStack`, we deploy mlflowService using Amazon Fargate within the MLFlowVPC.
+Inside the `MLflowVpcStack`, we deploy mlflowService using Amazon Fargate within the MLFlowVPC.
 An internal load balancer distributes external incoming application traffic to the mlflowService.
 In order to implement the private integration we create a VpcLink to encapsulate connections between API Gateway and mlflowService.
-Inside the `HttpApiGatewayStack`, we create an HTTP API Gateway that integrates with the mlflowService Amazon Fargate service running inside the `MLflowVpclinkStack` using the Vpclink and internal load balancer listener.
+Inside the `HttpApiGatewayStack`, we create an HTTP API Gateway that integrates with the mlflowService Amazon Fargate service running inside the `MLflowVpcStack` using the Vpclink and internal load balancer listener.
 
-![Architecture](./images/Architecture-1.png)
+![Architecture](./images/Architecture.png)
 *Fig 1 - Architecture*
 
 Here are the steps we’ll be following to implement the above architecture:
@@ -142,18 +142,18 @@ npm install
 
 We shall implement this architecture using an AWS CDK application comprising of two individual CDK stacks:
 
-- **MLflowVpclinkStack** deploys the Fargate and Vpclink resources.
-- **HttpGatewayStack** deploys the Http Api integrated with Fargate service using a Vpclink.
+- **MLflowVpcStack** deploys the MLflow server on Fargate on a Vpc.
+- **HttpGatewayStack** deploys the HTTP Api integrated with Fargate service using a Vpclink.
 - **SageMakerNotebookInstanceStack** deploys the Amazon SageMaker Notebook Instance including the notebook to showcase a workflow on how to integrate Amazon SageMaker with MLFlow.
 
 Let us discuss these stacks one by one.
 
-### **MLflowVpclinkStack**
+### **MLflowVpcStack**
 
-![MlflowVpclinkStack](./images/MlflowVpclinkStack.png)
+![MLflowVpcStack](./images/MlflowVpclinkStack.png)
 *Fig 2 - MLFlow VPC*
 
-Under the cdk/nginxAuthentication/lib folder, open the `mlflow-vpclink-stack.ts` file and let us explore the following different CDK constructs.
+Under the `./cdk/nginxAuthentication/lib` folder, open the `mlflow-vpclink-stack.ts` file and let us explore the following different CDK constructs.
 
 ```typescript
 // Export Vpc, ALB Listener, and Mlflow secret ARN
@@ -162,7 +162,7 @@ Under the cdk/nginxAuthentication/lib folder, open the `mlflow-vpclink-stack.ts`
   public readonly vpc: ec2.Vpc;
  ```
 
-These three variables enable us to export the provisioned Vpc along with the ALB Listener from **MLflowVpclinkStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack,
+These three variables enable us to export the provisioned Vpc along with the ALB Listener from **MLflowVpcStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack,
 as well as the ARN of the MLFlow credentials in the **SageMakerNotebookInstanceStack**.
 
 **VPC:**
@@ -582,10 +582,8 @@ autoScaling.scaleOnCpuUtilization('CpuScaling', {
 ```
 
 ### **HttpApiStack**
-![HttpApiStack](./images/HttpApiStack.png)
-*Fig 3 - Amazon HTTP API Gateway*
 
-Under the cdk/nginxAuthentication/lib folder, open the `http-gateway-stack.ts` file and let us explore the following different CDK constructs.
+Under the `./cdk/nginxAuthentication/lib` folder, open the `http-gateway-stack.ts` file and let us explore the following different CDK constructs.
 
 
 **VPC Link:**
@@ -616,7 +614,7 @@ The following construct will integrate the Amazon HTTP API Gateway with the back
 const mlflowIntegration = new HttpAlbIntegration(
   'MLflowIntegration',
   httpApiListener,
-  { vpcLink: mlflowVpcLink }
+  { vpcLink: MLflowVpclink }
 )
 ```
 
@@ -644,11 +642,11 @@ this.api.addRoutes({
 })
 ```
 
-After the **MLflowVpclinkStack** and the **HttpApiGatewayStack** are deployed, the MLflow server is finally accessible. 
+After the **MLflowVpcStack** and the **HttpApiGatewayStack** are deployed, the MLflow server is finally accessible.
 
 ### **SageMakerNotebookInstanceStack**
 
-Under the cdk/nginxAuthentication/lib folder, open the `sagemaker-notebook-instance-stack.ts` file and let us explore the following different CDK constructs.
+Under the `./cdk/nginxAuthentication/lib` folder, open the `sagemaker-notebook-instance-stack.ts` file and let us explore the following different CDK constructs.
 
 **Lifecycle configuration**
 
@@ -759,21 +757,21 @@ In order to access the MLFlow UI, we need the URL of the Amazon HTTP API Gateway
 The HTTP API Gateway can be retrieved from the **HttpApiGatewayStack** CloudFormation output as shown in the figure below.
 
 ![HttpApiGatewayURL](./images/HttpApiGatewayURL.png)
-*Fig 4 - Retrieve Amazon HTTP API Gateway URL*
+*Fig 3 - Retrieve Amazon HTTP API Gateway URL*
 
 The MLFlow credentials can be retrieved either by navigating in the console to the AWS Secrets Manager, or by using the aws cli.
 ```bash
 # username
-aws secretsmanager get-secret-value --secret-id mlflow-credentials | jq -r '.SecretString' | jq -r '.username'
+aws secretsmanager get-secret-value --secret-id mlflow-server-credentials | jq -r '.SecretString' | jq -r '.username'
 # password
-aws secretsmanager get-secret-value --secret-id mlflow-credentials | jq -r '.SecretString' | jq -r '.password'
+aws secretsmanager get-secret-value --secret-id mlflow-server-credentials | jq -r '.SecretString' | jq -r '.password'
 ```
 ### MLFlow / Amazon SageMaker integration
 
 In the AWS console, navigate to Amazon SageMaker and open JupiterLab in the SageMaker Notebook called `MLFlow-SageMaker-PrivateLink` created in the previous step as shown below.
 
 ![SageMakerNotebookInstance](./images/SageMakerNotebookInstance.png)
-*Fig 5 - Navigate to the Amazon SageMaker Notebook Instance*
+*Fig 4 - Navigate to the Amazon SageMaker Notebook Instance*
 
 Navigate to the `./aws-mlflow-sagemaker-cdk/lab/nginxBasicAuth` folder and open the open the `sagemaker_and_mlflow.ipynb` notebook.
 You can see how to train in Amazon SageMaker and store the resulting models in MLFlow after retrieving the credentials at runtime and how to deploy models stored in Amazon SageMaker endpoints using the MLFlow SDK.
