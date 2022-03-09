@@ -107,10 +107,12 @@ echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
 ### Resizing the Cloud9
 Before deploying, since we use CDK construct to build the container images locally, we need a larger disk size than the one provided by Cloud9 in its default environment configuration (i.e. 20GB, whivh is not enough).
 To resize it on the fly without rebooting the instance, you can run the following script specifying a new desired size.
+
 ```
-./resize-cloud9.sh 40
+cd ~/aws-mlflow-sagemaker-cdk/
+./resize-cloud9.sh 100
 ```
-Where `40` represents the new desired disk size in GB.
+Where `100` represents the new desired disk size in GB.
 
 ### Install AWS CDK
 
