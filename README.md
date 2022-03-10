@@ -109,7 +109,7 @@ Before deploying, since we use CDK construct to build the container images local
 To resize it on the fly without rebooting the instance, you can run the following script specifying a new desired size.
 
 ```
-cd aws-mlflow-sagemaker-cdk/
+cd ~/environment/aws-mlflow-sagemaker-cdk/
 ./resize-cloud9.sh 100
 ```
 Where `100` represents the new desired disk size in GB.
