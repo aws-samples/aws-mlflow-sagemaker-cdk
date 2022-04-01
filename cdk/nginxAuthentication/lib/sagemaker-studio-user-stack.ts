@@ -2,16 +2,17 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
 import * as sagemaker from 'aws-cdk-lib/aws-sagemaker';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as apig from "@aws-cdk/aws-apigatewayv2-alpha";
 
-export class SageMakerNotebookInstanceStack extends cdk.Stack {
+export class SageMakerStudioUserStack extends cdk.Stack {
     constructor(
         scope: Construct,
         id: string,
         mlflowSecretArn: string,
         httpGatewayStackName: string,
+        domainId: string,
         props?: cdk.StackProps
     ){
         super(scope, id, props);
@@ -20,15 +21,14 @@ export class SageMakerNotebookInstanceStack extends cdk.Stack {
         const sagemakerExecutionRole = new iam.Role(this, "sagemaker-execution-role", {
           assumedBy: new iam.ServicePrincipal("sagemaker.amazonaws.com"),
           managedPolicies: [
-            iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess"),
-            iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryFullAccess"), // need to push mlflow container
+            iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess")
           ],
           inlinePolicies: {
             retrieveApiGatewayUrl: new iam.PolicyDocument({
               statements: [
                 new iam.PolicyStatement({
                   effect: iam.Effect.ALLOW,
-                  resources: [`arn:*:cloudformation:${this.region}:${this.account}:stack/${httpGatewayStackName}/*`],  // for a production environment, you might want to restrict this to only the relevant bucket
+                  resources: [`arn:*:cloudformation:${this.region}:${this.account}:stack/${httpGatewayStackName}/*`],
                   actions: ["cloudformation:DescribeStacks"],
                 })
               ],
@@ -37,8 +37,8 @@ export class SageMakerNotebookInstanceStack extends cdk.Stack {
               statements: [
                 new iam.PolicyStatement({
                   effect: iam.Effect.ALLOW,
-                  resources: ["*"],  // for a production environment, you might want to restrict this to only the relevant bucket
-                  actions: ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:PutObjectTagging"],
+                  resources: ["arn:aws:s3:::*mlflow*"],
+                  actions: ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:PutObjectTagging", "s3:CreateBucket"],
                 })
               ],
             }),
@@ -63,18 +63,43 @@ export class SageMakerNotebookInstanceStack extends cdk.Stack {
             })
           },
         });
-    
-        // SageMaker Notebook Instance
-        const notebook = new sagemaker.CfnNotebookInstance(
-          this,
-          'MlflowNotebook',
-          {
-              roleArn: sagemakerExecutionRole.roleArn,
-              instanceType: "ml.t3.large",
-              volumeSizeInGb: 40,
-              notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
-              defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
-          }
-      );
+        
+        if (domainId == "") {
+          const defaultVpc = ec2.Vpc.fromLookup(this, 'DefaultVPC', { isDefault: true });
+          const subnetIds: string[] = [];
+
+          defaultVpc.publicSubnets.forEach((subnet, index) => {
+            subnetIds.push(subnet.subnetId);
+          });
+
+          const cfnStudioDomain = new sagemaker.CfnDomain(this, 'MyStudioDomain', {
+            authMode: 'IAM',
+            defaultUserSettings: {
+              executionRole: sagemakerExecutionRole.roleArn,
+            },
+            domainName: 'StudioDomainName',
+            vpcId: defaultVpc.vpcId,
+            subnetIds: subnetIds,
+          });
+
+          const cfnUserProfile = new sagemaker.CfnUserProfile(this, 'MyCfnUserProfile', {
+            domainId: cfnStudioDomain.attrDomainId,
+            userProfileName: 'mlflow-user',
+            userSettings: {
+              executionRole: sagemakerExecutionRole.roleArn,
+              }
+            }
+          );
+        }
+        else {
+          const cfnUserProfile = new sagemaker.CfnUserProfile(this, 'MyCfnUserProfile', {
+            domainId: domainId,
+            userProfileName: 'mlflow-user',
+            userSettings: {
+              executionRole: sagemakerExecutionRole.roleArn,
+              }
+            }
+          );
+        }
     }
 }

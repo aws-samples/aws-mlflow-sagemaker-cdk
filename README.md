@@ -20,7 +20,7 @@ In this project, we show how to deploy MLflow on [AWS Fargate](https://aws.amazo
 Our solution is based on three main high level components: 
 * MLFlow server;
 * HTTP API Gateway; and
-* SageMaker Notebook Instance.
+* SageMaker Studio domain and SageMaker Studio user.
 
 ### MLflow Server
 MLflow is provisioned in a VPC on an [Amazon ECS](https://aws.amazon.com/ecs/) cluster using AWS Fargate for the serverless compute engine.
@@ -31,11 +31,12 @@ Finally, we provide a simple authentication mechanism leveraging NGINX and its r
 ### Amazon HTTP API Gateway
 In order to implement the private integration, we create a AWS PrivateLink to encapsulate connections between MLflow server and the outside world through an [Amazon HTTP API Gateway](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api.html).
 
-### SageMaker Notebook
+### SageMaker Studio
 
-[Amazon SageMaker Notebook Instances](https://docs.aws.amazon.com/sagemaker/latest/dg/nbi.html) are a ML compute instances that run the Jupyter Notebook App.
-Amazon SageMaker manages the creation of the instance and the related resources.
-We will use an Amazon SageMaker Notebook Instance to experiment with our machine learning sample problem, and to show how you can integrate SageMaker with MLFlow and can handle the user authentication.
+[Amazon SageMaker Studio](https://aws.amazon.com/sagemaker/studio/) provides a single, web-based visual interface where you can perform all ML development steps.
+SageMaker Studio gives you complete access, control, and visibility into each step required to build, train, and deploy models.
+You can quickly upload data, create new notebooks, train and tune models, move back and forth between steps to adjust experiments, compare results, and deploy models to production all in one place.
+We will use an Amazon SageMaker Studio to experiment with our machine learning sample problem, and to show how you can integrate SageMaker with MLFlow and can handle the user authentication.
 
 ## Implementation
 
@@ -51,11 +52,11 @@ The target audience for this workshop are developers and architects who want to 
 
 ## Prerequisites
 In order to implement the instructions laid out in this post, you will need the following:
-- An [AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/) (Producer Account)
+- An [AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/)
 - an IAM user with Administrator permissions
 
 ## Architecture
-As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpcStack**, **HttpApiGatewayStack**, and a **SageMakerNotebookInstanceStack**.
+As shown in Fig 1, we shall create one AWS CDK application consisting of three AWS CDK stacks **MLflowVpcStack**, **HttpApiGatewayStack**, and a **SageMakerStudioUserStack**.
 
 Inside the `MLflowVpcStack`, we deploy mlflowService using Amazon Fargate within the MLFlowVPC.
 An internal load balancer distributes external incoming application traffic to the mlflowService.
@@ -98,10 +99,18 @@ If you are already working in `us-west-2` you can skip this section.
 However, you can change the default region by setting up the `AWS_REGION` environment variable.
 When working on Cloud9, you can specify the same region where your Cloud9 environment is running as follow:
 
-```
+```bash
 sudo yum install jq -y
 export AWS_REGION=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | jq -r '.region')
 echo "export AWS_REGION=${AWS_REGION}" | tee -a ~/.bash_profile
+export AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+echo "export AWS_ACCOUNT=${AWS_ACCOUNT}" | tee -a ~/.bash_profile
+```
+
+The CDK script expects to find the ENV variable `DOMAIN_ID` in order to figure out if a new SageMaker Studio domain is needed or not.
+```bash
+export DOMAIN_ID=$(aws sagemaker list-domains | jq -r 'select(.Domains[0] != null) .Domains[0].DomainId | tostring')
+echo "export DOMAIN_ID=${DOMAIN_ID}" | tee -a ~/.bash_profile
 ```
 
 ### Resizing the Cloud9
@@ -114,19 +123,20 @@ cd ~/environment/aws-mlflow-sagemaker-cdk/
 ```
 Where `100` represents the new desired disk size in GB.
 
-### Install AWS CDK
+### Install and bootstrap AWS CDK
 
 The AWS Cloud Development Kit (AWS CDK) is an open-source software development framework to model and provision your cloud application resources using familiar programming languages.
 If you would like to familiarize yourself the [CDKWorkshop](https://cdkworkshop.com/) is a great place to start.
 
 Using Cloud9 environment, open a new Terminal and use the following commands:
 ```bash
-cd aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
+cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
 npm install -g aws-cdk@2.8.0 --force
 cdk --version
 ```
 
-Take a note of the latest version that you install, at the time of writing this post it is `2.8.0`. Open the package.json file and replace the version “2.8.0” of the following modules with the latest version that you have installed above.
+Take a note of the latest version that you install, at the time of writing this post it is `2.8.0`.
+Open the package.json file and replace the version “2.8.0” of the following modules with the latest version that you have installed above.
 
 ```typescript
 "aws-cdk-lib": "2.8.0",
@@ -134,10 +144,11 @@ Take a note of the latest version that you install, at the time of writing this 
 "@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.8.0-alpha.0",
 ```
 
-This will install all the latest CDK modules under the `node_modules` directory.
+This will install all the latest CDK modules under the `node_modules` directory (`npm install`) and prepare your AWS account to deploy resources with CDK (`cdk bootstrap`).
 
 ```bash
 npm install
+cdk bootstrap
 ```
 
 ### Creating AWS resources using the CDK
@@ -146,7 +157,6 @@ We shall implement this architecture using an AWS CDK application comprising of 
 
 - **MLflowVpcStack** deploys the MLflow server on Fargate on a Vpc.
 - **HttpGatewayStack** deploys the HTTP Api integrated with Fargate service using a Vpclink.
-- **SageMakerNotebookInstanceStack** deploys the Amazon SageMaker Notebook Instance including the notebook to showcase a workflow on how to integrate Amazon SageMaker with MLFlow.
 
 Let us discuss these stacks one by one.
 
@@ -159,13 +169,12 @@ Under the `./cdk/nginxAuthentication/lib` folder, open the `mlflow-vpclink-stack
 
 ```typescript
 // Export Vpc, ALB Listener, and Mlflow secret ARN
-  public readonly httpApiListener: elbv2.ApplicationListener;
-  public readonly mlflowSecretArn: string;
-  public readonly vpc: ec2.Vpc;
+public readonly httpApiListener: elbv2.ApplicationListener;
+public readonly mlflowSecretArn: string;
+public readonly vpc: ec2.Vpc;
  ```
 
-These three variables enable us to export the provisioned Vpc along with the ALB Listener from **MLflowVpcStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack,
-as well as the ARN of the MLFlow credentials in the **SageMakerNotebookInstanceStack**.
+These three variables enable us to export the provisioned Vpc along with the ALB Listener from **MLflowVpcStack** stack so as to use these to create the Http Api in the **HttpGatewayStack** stack.
 
 **VPC:**
 
@@ -295,7 +304,7 @@ const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
   assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
   managedPolicies: [
     iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
-    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess") // for a production environment, you might want to restrict this policy to only the bucket you need.
   ],
   inlinePolicies: {
     secretsManagerRestricted: new iam.PolicyDocument({
@@ -317,7 +326,7 @@ const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
           effect: iam.Effect.ALLOW,
           resources: ["*"],
           actions: ["secretsmanager:ListSecrets"]
-        })
+        }),
       ]
     })
   }
@@ -646,56 +655,50 @@ this.api.addRoutes({
 
 After the **MLflowVpcStack** and the **HttpApiGatewayStack** are deployed, the MLflow server is finally accessible.
 
-### **SageMakerNotebookInstanceStack**
+## *Integration with SageMaker*
 
-Under the `./cdk/nginxAuthentication/lib` folder, open the `sagemaker-notebook-instance-stack.ts` file and let us explore the following different CDK constructs.
+We provide two ways to explore the integration between SageMaker and MLFlow.
+Each option is encapsulated into its own CDK construct and you are free to pick the option you prefer.
 
-**Lifecycle configuration**
+1. **SageMakerStudioUserStack** - deploys a SageMaker Studio (preferred as you can leverage the Studio UI for SageMaker Experiments)
+2. **SageMakerNotebookInstanceStack** - deploys a SageMaker Notebook instance 
 
-A lifecycle configuration provides shell scripts that run only when you create the notebook instance and/or whenever you start one.
-When you create a notebook instance, you can attach a new lifecycle configuration with the scripts it uses or apply one that you already have.
-In our case, we set 2 enviromental variables, i.e., `MLFLOWSERVER` and `MLFLOW_SECRET_NAME`, to facilitate the execution of the notebook without any further user input.
+Let us explore both options and you can then decide which option best suits your needs.
 
-```typescript
-const lifecycleConfig = new sagemaker.CfnNotebookInstanceLifecycleConfig(
-  this, 
-  'lifecycle-config',
-  {
-    notebookInstanceLifecycleConfigName: `MlflowNotebook-lifecycle-config`,
-    onCreate: [
-      {
-        content: cdk.Fn.base64(
-`echo "export MLFLOWSERVER=${api.apiEndpoint}" | tee -a /home/ec2-user/.bashrc
-echo "export MLFLOW_SECRET_NAME=${mlflowSecretName}" | tee -a /home/ec2-user/.bashrc`
-)
-      }
-    ],
-    onStart: []
-  });
-```
+### **SageMakerStudioUserStack (option 1)**
+
+Under the `./cdk/nginxAuthentication/lib` folder, open the `sagemaker-studio-user-stack.ts` file and let us explore the following CDK construct.
 
 **SageMaker execution role**
 
 As a managed service, Amazon SageMaker performs operations on your behalf on the AWS hardware that is managed by SageMaker.
 SageMaker can perform only operations that the user permits.
 You can grant these permissions via specifying an execution role.
-Our use case dictates that not only we need access to the full Amazon SageMaker functionalities, but also to S3 buckets (e.g., to store and retrieve training and test data), to the MLFlow credentials stored in AWS Secrets Manager, and to Amazon ECR to push and pull MLFlow specific container images.
+Our use case dictates that not only we need access to the full Amazon SageMaker functionalities, but also to specific S3 buckets (e.g., to store and retrieve training and test data), as well as to the MLFlow credentials stored in AWS Secrets Manager.
 
 ```typescript
 // SageMaker Execution Role
 const sagemakerExecutionRole = new iam.Role(this, "sagemaker-execution-role", {
   assumedBy: new iam.ServicePrincipal("sagemaker.amazonaws.com"),
   managedPolicies: [
-    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess"),
-    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryFullAccess"), // need to push mlflow container
+    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess")
   ],
   inlinePolicies: {
+    retrieveApiGatewayUrl: new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          resources: [`arn:*:cloudformation:${this.region}:${this.account}:stack/${httpGatewayStackName}/*`],
+          actions: ["cloudformation:DescribeStacks"],
+        })
+      ],
+    }),
     s3Buckets: new iam.PolicyDocument({
       statements: [
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          resources: ["*"],  // for a production environment, you might want to restrict this to only the relevant bucket
-          actions: ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:PutObjectTagging"],
+          resources: ["arn:aws:s3:::*mlflow*"],
+          actions: ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:PutObjectTagging", "s3:CreateBucket"],
         })
       ],
     }),
@@ -722,33 +725,134 @@ const sagemakerExecutionRole = new iam.Role(this, "sagemaker-execution-role", {
 });
 ```
 
-**SageMaker Notebook Instance**
+In the **SageMakerStudioUserStack** we have included logic to either deploy a new SageMaker Studio domain, or to update an existing one.
+The CDK script expects to find the ENV variable `DOMAIN_ID` in order to figure out if a new domain is needed or not, which we have setup earlier.
+
+#### Provision a new SageMaker Studio domain
+( Skip to [Update an existing SageMaker Studio](#update-an-existing-sagemaker-studio-domain) if you have already an existing SageMaker Studio domain)
+
+Provisioning a new SageMaker Studio domain will do the following operations:
+
+1. Create a SageMaker execution role with the correct permissions
+
 ```typescript
-// SageMaker Notebook Instance
-const notebook = new sagemaker.CfnNotebookInstance(
-  this,
-  'MlflowNotebook',
-  {
-      roleArn: sagemakerExecutionRole.roleArn,
-      instanceType: "ml.t3.large",
-      volumeSizeInGb: 40,
-      notebookInstanceName: "MLFlow-SageMaker-PrivateLink",
-      defaultCodeRepository: "https://github.com/aws-samples/aws-mlflow-sagemaker-cdk",
-      lifecycleConfigName: lifecycleConfig.notebookInstanceLifecycleConfigName
+// SageMaker Execution Role
+const sagemakerExecutionRole = new iam.Role(this, "sagemaker-execution-role", {
+  assumedBy: new iam.ServicePrincipal("sagemaker.amazonaws.com"),
+  managedPolicies: [
+    iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSageMakerFullAccess")
+  ],
+  inlinePolicies: {
+    retrieveApiGatewayUrl: new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          resources: [`arn:*:cloudformation:${this.region}:${this.account}:stack/${httpGatewayStackName}/*`],
+          actions: ["cloudformation:DescribeStacks"],
+        })
+      ],
+    }),
+    s3Buckets: new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          resources: ["arn:aws:s3:::*mlflow*"],
+          actions: ["s3:ListBucket","s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:PutObjectTagging", "s3:CreateBucket"],
+        })
+      ],
+    }),
+    secretsManagerRestricted: new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          resources: [mlflowSecretArn],
+          actions: [
+            "secretsmanager:GetResourcePolicy",
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:ListSecretVersionIds"
+          ]
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          resources: ["*"],
+          actions: ["secretsmanager:ListSecrets"]
+        })
+      ]
+    })
+  },
+});
+```
+
+2. Create a new SageMaker Studio domain in the default VPC.
+
+```typescript
+// SageMaker Studio domain
+const defaultVpc = ec2.Vpc.fromLookup(this, 'DefaultVPC', { isDefault: true });
+const subnetIds: string[] = [];
+
+defaultVpc.publicSubnets.forEach((subnet, index) => {
+  subnetIds.push(subnet.subnetId);
+});
+
+const cfnStudioDomain = new sagemaker.CfnDomain(this, 'MyStudioDomain', {
+  authMode: 'IAM',
+  defaultUserSettings: {
+    executionRole: sagemakerExecutionRole.roleArn,
+  },
+  domainName: 'StudioDomainName',
+  vpcId: defaultVpc.vpcId,
+  subnetIds: subnetIds,
+});
+```
+
+3. Create a new SageMaker Studio user attached to the domain and with the execution role previously created attached to it
+
+```typescript
+// SageMaker Studio user
+const cfnUserProfile = new sagemaker.CfnUserProfile(this, 'MyCfnUserProfile', {
+  domainId: cfnStudioDomain.attrDomainId,
+  userProfileName: 'mlflow-user',
+  userSettings: {
+    executionRole: sagemakerExecutionRole.roleArn,
+    }
   }
 );
 ```
+
+#### Update an existing SageMaker Studio Domain
+
+Updating an existing SageMaker Studio domain will do the following operations:
+
+1. Create a sagemaker execution role with the correct permissions
+2. Create a new SageMaker Studio user attached to the domain and with the execution role previously created attached to it
+
 ## Provisioning AWS resources using the AWS CDK
+
+We are finally ready to deploy the full solution
 
 ```bash
 cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
-npm run build
+npm install
 cdk bootstrap
 ```
 
 Finally, we are ready to deploy our stack.
-```
+```bash
 ./deploy.sh
+```
+
+## Push the `mlflow-pyfunc` container to ECR
+
+In order to deploy to SageMaker an mlflow model, you need to create a serving container that implements what the SageMaker runtime expects to find.
+MLFlow makes this effor easier by providing a CLI command that build the image locally and pushes to your ECR the image.
+
+```bash
+# install the libraries
+pip install mlflow==1.23.1 boto3
+
+# build and push the container to ECR
+mlflow sagemaker build-and-push-container
 ```
 
 ## Testing the Http Api 
@@ -768,19 +872,30 @@ aws secretsmanager get-secret-value --secret-id mlflow-server-credentials | jq -
 # password
 aws secretsmanager get-secret-value --secret-id mlflow-server-credentials | jq -r '.SecretString' | jq -r '.password'
 ```
-### MLFlow / Amazon SageMaker integration
+### MLFlow / Amazon SageMaker Studio integration lab
 
-In the AWS console, navigate to Amazon SageMaker and open JupiterLab in the SageMaker Notebook called `MLFlow-SageMaker-PrivateLink` created in the previous step as shown below.
+In the AWS console, navigate to Amazon SageMaker Studio and open Studio for the `mlflow-user` user as shown in the pictures below.
 
-![SageMakerNotebookInstance](./images/SageMakerNotebookInstance.png)
-*Fig 4 - Navigate to the Amazon SageMaker Notebook Instance*
+![SageMakerStudio](./images/lanuch-sm-studio.png)
+*Fig 4 - Navigate to Amazon SageMaker Studio*
 
-Navigate to the `./aws-mlflow-sagemaker-cdk/lab/nginxBasicAuth` folder and open the open the `sagemaker_and_mlflow.ipynb` notebook.
+![SageMakerStudioUser](./images/sm-studio-user.png)
+*Fig 5 - Launch Amazon SageMaker Studio for the `mlflow-user`*
+
+Clone this repository either from the terminal or from the Studio UI.
+
+![CloneRepoStudio](./images/clone-repo-studio-ui.png)
+*Fig 6 - Clone repo in SageMaker Studio*
+
+Navigate to the `./aws-mlflow-sagemaker-cdk/lab/nginxBasicAuth` folder and open the open the `sagemaker_studio_and_mlflow.ipynb` notebook.
 You can see how to train in Amazon SageMaker and store the resulting models in MLFlow after retrieving the credentials at runtime and how to deploy models stored in Amazon SageMaker endpoints using the MLFlow SDK.
+Furthermore, the lab shows how you can enrich MLFlow metadata with SageMaker metadata, and vice versa, by storing MFlow specifics in SageMaker via SageMaker Experiments SDK and visualize them in the SageMaker Studio UI.
 
 ## Cleanup
 
-To clean up the resources created by the CDK, run the following commands in a terminal of your Cloud9 instance:
+Before removing all resources created, you need to make sure that all Apps are deleted from the `mlflow-user` user, i.e. all `KernelGateway` apps, as well as the default `JupiterServer`
+
+Once done, you can destroy the CDK stack by running
 
 ```bash
 cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication

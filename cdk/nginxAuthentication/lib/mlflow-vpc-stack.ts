@@ -163,10 +163,18 @@ export class MLflowVpcStack extends cdk.Stack {
     const taskrole = new iam.Role(this, "ecsTaskExecutionRole", {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy"),
-        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonS3FullAccess")
+        iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AmazonECSTaskExecutionRolePolicy")
       ],
       inlinePolicies: {
+        s3Bucket: new iam.PolicyDocument({
+          statements:[
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              resources: [`arn:aws:s3:::${this.bucketName}`,`arn:aws:s3:::${this.bucketName}/*`],
+              actions: ["s3:*"]
+            })
+          ]
+        }),
         secretsManagerRestricted: new iam.PolicyDocument({
           statements: [
             new iam.PolicyStatement({
