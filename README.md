@@ -657,15 +657,7 @@ After the **MLflowVpcStack** and the **HttpApiGatewayStack** are deployed, the M
 
 ## *Integration with SageMaker*
 
-We provide two ways to explore the integration between SageMaker and MLFlow.
-Each option is encapsulated into its own CDK construct and you are free to pick the option you prefer.
-
-1. **SageMakerStudioUserStack** - deploys a SageMaker Studio (preferred as you can leverage the Studio UI for SageMaker Experiments)
-2. **SageMakerNotebookInstanceStack** - deploys a SageMaker Notebook instance 
-
-Let us explore both options and you can then decide which option best suits your needs.
-
-### **SageMakerStudioUserStack (option 1)**
+### **SageMakerStudioUserStack**
 
 Under the `./cdk/nginxAuthentication/lib` folder, open the `sagemaker-studio-user-stack.ts` file and let us explore the following CDK construct.
 
@@ -837,9 +829,9 @@ npm install
 cdk bootstrap
 ```
 
-Finally, we are ready to deploy our stack.
+Finally, we are ready to deploy our stacks.
 ```bash
-./deploy.sh
+./deploy
 ```
 
 ## Push the `mlflow-pyfunc` container to ECR
