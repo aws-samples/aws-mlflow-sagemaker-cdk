@@ -3,7 +3,6 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { MLflowVpcStack } from '../lib/mlflow-vpc-stack';
 import { HttpGatewayStack } from '../lib/http-gateway-stack';
-import { SageMakerNotebookInstanceStack } from '../lib/sagemaker-notebook-instance-stack';
 import { SageMakerStudioUserStack } from '../lib/sagemaker-studio-user-stack';
 const env = { region: (process.env['AWS_REGION'] || 'us-west-2'), account: process.env['AWS_ACCOUNT'] };
 
@@ -27,21 +26,11 @@ const httpGatewayStack = new HttpGatewayStack(
     { env: env }
 );
 
-// Option 1 - SageMaker Studio
 new SageMakerStudioUserStack(
     app,
     'SageMakerStudioUserStack',
     mlflowVpcStack.mlflowSecretArn,
     'HttpGatewayStack',
     domainId,
-    { env: env }
-)
-
-// Option 2 - SageMaker Notebook instance
-new SageMakerNotebookInstanceStack(
-    app,
-    'SageMakerNotebookInstanceStack',
-    mlflowVpcStack.mlflowSecretArn,
-    'HttpGatewayStack',
     { env: env }
 )
