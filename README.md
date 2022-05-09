@@ -147,13 +147,29 @@ Open the package.json file and replace the version “2.22.0” of the following
 This will install all the latest CDK modules under the `node_modules` directory (`npm install`) and prepare your AWS account to deploy resources with CDK (`cdk bootstrap`).
 
 ```bash
+cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
 npm install
 cdk bootstrap
 ```
 
-### Creating AWS resources using the CDK
+## Provisioning AWS resources using the AWS CDK
 
-We shall implement this architecture using an AWS CDK application comprising of two individual CDK stacks:
+Now we are ready to deploy our full solution.
+```bash
+cdk deploy --all --require-approval never
+```
+
+Alternatively, you can also deploy individual stacks by passing the stack name to CDK, e.g.
+
+```bash
+cdk deploy MLflowVpcStack HttpGatewayStack
+```
+
+if you want to only deploy the `MLflowVpcStack` and `HttpGatewayStack` and leave out the `SageMakerStudioUserStack`.
+
+## Detailed walkthrough the solution
+
+We have implemented this architecture using an AWS CDK application comprising of two individual CDK stacks:
 
 - **MLflowVpcStack** deploys the MLflow server on Fargate on a Vpc.
 - **HttpGatewayStack** deploys the HTTP Api integrated with Fargate service using a Vpclink.
@@ -819,21 +835,6 @@ Updating an existing SageMaker Studio domain will do the following operations:
 1. Create a sagemaker execution role with the correct permissions
 2. Create a new SageMaker Studio user attached to the domain and with the execution role previously created attached to it
 
-## Provisioning AWS resources using the AWS CDK
-
-We are finally ready to deploy the full solution
-
-```bash
-cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
-npm install
-cdk bootstrap
-```
-
-Finally, we are ready to deploy our stacks.
-```bash
-./deploy
-```
-
 ## Push the `mlflow-pyfunc` container to ECR
 
 In order to deploy to SageMaker an mlflow model, you need to create a serving container that implements what the SageMaker runtime expects to find.
@@ -843,7 +844,7 @@ MLFlow makes this effor easier by providing a CLI command that build the image l
 # install the libraries
 pip install mlflow==1.23.1 boto3
 
-# build and push the container to ECR
+# build and push the container to ECR into your account
 mlflow sagemaker build-and-push-container
 ```
 
