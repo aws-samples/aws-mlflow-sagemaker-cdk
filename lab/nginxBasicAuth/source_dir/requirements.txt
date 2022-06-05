@@ -1,2 +1,2 @@
-mlflow==1.23.1
+mlflow==1.26.1
 sagemaker-experiments
