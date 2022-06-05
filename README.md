@@ -493,7 +493,7 @@ Similarly as we did for the NGINX credentials, we ensure that the credentials fo
 FROM python:3.8.0
 
 RUN pip install \
-    mlflow==1.18.0 \
+    mlflow==1.26.1 \
     pymysql==1.0.2 \
     boto3 && \
     mkdir /mlflow/
@@ -842,7 +842,7 @@ MLFlow makes this effor easier by providing a CLI command that build the image l
 
 ```bash
 # install the libraries
-pip install mlflow==1.23.1 boto3
+pip install mlflow==1.26.1 boto3
 
 # build and push the container to ECR into your account
 mlflow sagemaker build-and-push-container
