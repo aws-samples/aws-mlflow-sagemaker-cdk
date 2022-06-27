@@ -7,7 +7,7 @@ RUN pip install \
     mkdir /mlflow/
 
 # This is a hack - copy static files for the mlflow UI to circumvent the cors issue
-COPY js /usr/local/lib/python3.8/site-packages/mlflow/server/js
+# COPY js /usr/local/lib/python3.8/site-packages/mlflow/server/js
 
 EXPOSE 5000
 

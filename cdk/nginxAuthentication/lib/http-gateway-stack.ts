@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as apig from "@aws-cdk/aws-apigatewayv2-alpha";
-import { HttpAlbIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+import { HttpAlbIntegration, HttpNlbIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 
@@ -15,7 +15,7 @@ export class HttpGatewayStack extends cdk.Stack {
     scope: Construct,
     id: string,
     vpc: ec2.Vpc,
-    httpApiListener: elbv2.ApplicationListener,
+    httpApiListener: elbv2.NetworkListener,
     props?: cdk.StackProps
   ) {
     super(scope, id, props);
@@ -34,7 +34,7 @@ export class HttpGatewayStack extends cdk.Stack {
     }); 
     
     // HTTP Integration with VpcLink
-    const mlflowIntegration = new HttpAlbIntegration(
+    const mlflowIntegration = new HttpNlbIntegration(
       'MLflowIntegration',
       httpApiListener,
       { vpcLink: mlflowVpcLink }

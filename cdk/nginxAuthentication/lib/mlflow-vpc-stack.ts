@@ -11,7 +11,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { CfnDBCluster, CfnDBSubnetGroup } from 'aws-cdk-lib/aws-rds';
 
-const { ApplicationProtocol } = elbv2;
+const { ApplicationProtocol, Protocol } = elbv2;
 const dbName = "mlflowdb"
 const dbPort = 3306
 const dbUsername = "master"
@@ -25,7 +25,7 @@ const mlflowUsername = "admin"
 export class MLflowVpcStack extends cdk.Stack {
 
   // Export Vpc, ALB Listener, and Mlflow secret ARN
-  public readonly httpApiListener: elbv2.ApplicationListener;
+  public readonly httpApiListener: elbv2.NetworkListener;
   public readonly mlflowSecretArn: string;
   public readonly vpc: ec2.Vpc;
 
@@ -296,7 +296,7 @@ export class MLflowVpcStack extends cdk.Stack {
     });
 
     // 👇 ALB
-    const httpApiInternalALB = new elbv2.ApplicationLoadBalancer(
+    const httpApiInternalALB = new elbv2.NetworkLoadBalancer(
       this,
       "httpapiInternalALB",
       {
@@ -308,7 +308,7 @@ export class MLflowVpcStack extends cdk.Stack {
     // 👇 ALB Listener
     this.httpApiListener = httpApiInternalALB.addListener("httpapiListener", {
       port: 80,
-      protocol: ApplicationProtocol.HTTP,
+      protocol: Protocol.TCP,
 
     });
     
@@ -316,9 +316,9 @@ export class MLflowVpcStack extends cdk.Stack {
     const mlflowServiceTargetGroup = this.httpApiListener.addTargets(
       "mlflowServiceTargetGroup",
       {
-        healthCheck: {
-          path: "/elb-status"
-        },
+        // healthCheck: {
+        //   path: "/elb-status"
+        // },
         targets: [
           mlflowService.loadBalancerTarget(
             {
@@ -328,7 +328,7 @@ export class MLflowVpcStack extends cdk.Stack {
           )
         ],
         port: 80,
-        protocol: ApplicationProtocol.HTTP,
+        // protocol: ApplicationProtocol.HTTP,
       }
     );
 
