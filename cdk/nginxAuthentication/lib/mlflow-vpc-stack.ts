@@ -52,12 +52,12 @@ export class MLflowVpcStack extends cdk.Stack {
         },
         {
           name: 'private',
-          subnetType: ec2.SubnetType.PRIVATE,
+          subnetType: ec2.SubnetType.PRIVATE_WITH_NAT,
           cidrMask: 26,
         },
         {
           name: 'isolated',
-          subnetType: ec2.SubnetType.ISOLATED,
+          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
           cidrMask: 28,
         },
       ],
