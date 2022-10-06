@@ -131,17 +131,17 @@ If you would like to familiarize yourself the [CDKWorkshop](https://cdkworkshop.
 Using Cloud9 environment, open a new Terminal and use the following commands:
 ```bash
 cd ~/environment/aws-mlflow-sagemaker-cdk/cdk/nginxAuthentication
-npm install -g aws-cdk@2.22.0 --force
+npm install -g aws-cdk@2.44.0 --force
 cdk --version
 ```
 
-Take a note of the latest version that you install, at the time of writing this post it is `2.22.0`.
-Open the package.json file and replace the version “2.22.0” of the following modules with the latest version that you have installed above.
+Take a note of the latest version that you install, at the time of writing this post it is `2.44.0`.
+Open the package.json file and replace the version “2.44.0” of the following modules with the latest version that you have installed above.
 
 ```typescript
-"aws-cdk-lib": "2.22.0",
-"@aws-cdk/aws-apigatewayv2-alpha": "2.22.0-alpha.0",
-"@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.22.0-alpha.0",
+"aws-cdk-lib": "2.44.0",
+"@aws-cdk/aws-apigatewayv2-alpha": "2.44.0-alpha.0",
+"@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.44.0-alpha.0",
 ```
 
 This will install all the latest CDK modules under the `node_modules` directory (`npm install`) and prepare your AWS account to deploy resources with CDK (`cdk bootstrap`).
