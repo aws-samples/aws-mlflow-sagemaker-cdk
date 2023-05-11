@@ -152,9 +152,29 @@ npm install
 cdk bootstrap
 ```
 
+#### Ensure Python 3.8 (or greater) is installed
+
+In order to deploy to SageMaker an mlflow model, you need to create a serving container that implements what the SageMaker runtime expects to find.
+MLflow makes this effor easier by providing a CLI command that build the image locally and pushes to your ECR the image.
+Most recent versions of MLflow have dependencies on `Python 3.8`.
+
+```bash
+python --version
+```
+
+If running this sample on Cloud9, you need to ensure you have Python `3.8` installed.
+You can follow these instructions on how to do it.
+
+```bash
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python3.8
+```
+
 ## Provisioning AWS resources using the AWS CDK
 
 Now we are ready to deploy our full solution.
+
 ```bash
 cdk deploy --all --require-approval never
 ```
