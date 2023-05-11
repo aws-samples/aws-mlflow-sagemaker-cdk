@@ -490,10 +490,10 @@ Then the MLFlow server is started at container startup.
 Similarly as we did for the NGINX credentials, we ensure that the credentials for the Aurora Database are injected at startup time by Fargate from the AWS Secrets Manager.
 
 ```dockerfile
-FROM python:3.8.0
+FROM python:3.9.0
 
 RUN pip install \
-    mlflow==1.28.0 \
+    mlflow==2.3.1 \
     pymysql==1.0.2 \
     boto3 && \
     mkdir /mlflow/
@@ -842,7 +842,7 @@ MLFlow makes this effor easier by providing a CLI command that build the image l
 
 ```bash
 # install the libraries
-pip install mlflow==1.28.0 boto3
+pip install mlflow==2.3.1 boto3
 
 # build and push the container to ECR into your account
 mlflow sagemaker build-and-push-container
