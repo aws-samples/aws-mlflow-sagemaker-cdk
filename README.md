@@ -171,6 +171,19 @@ sudo amazon-linux-extras enable python3.8
 sudo yum install -y python3.8
 ```
 
+#### Push the `mlflow-pyfunc` container to ECR
+
+Il on Cloud9 run the following (after installing Python 3.8)
+```bash
+# install the libraries
+pip3.8 install mlflow==2.3.1 boto3 # or pip install mlflow==2.3.1 boto3 if your default pip comes alongside a python version >= 3.8
+```
+
+```bash
+# build and push the container to ECR into your account
+mlflow sagemaker build-and-push-container
+```
+
 ## Provisioning AWS resources using the AWS CDK
 
 Now we are ready to deploy our full solution.
