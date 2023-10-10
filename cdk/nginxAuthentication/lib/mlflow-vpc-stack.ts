@@ -206,7 +206,9 @@ export class MLflowVpcStack extends cdk.Stack {
       "mlflowTaskDef",
       {
         taskRole: taskrole,
-        family: "mlFlowStack"
+        family: "mlFlowStack",
+        cpu: 1024,
+        memoryLimitMiB: 2048
       },
     );
 
@@ -248,8 +250,8 @@ export class MLflowVpcStack extends cdk.Stack {
       {
         containerName: "mlflowContainer",
         essential: true,
-        // memoryReservationMiB: 512,
-        // cpu: 512,
+        memoryReservationMiB: 1024,
+        cpu: 512,
         portMappings: [{
           containerPort: containerPort,
           protocol: ecs.Protocol.TCP,
