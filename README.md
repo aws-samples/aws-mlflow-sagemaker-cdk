@@ -176,7 +176,7 @@ sudo yum install -y python3.8
 Il on Cloud9 run the following (after installing Python 3.8)
 ```bash
 # install the libraries
-pip3.8 install mlflow==2.3.1 boto3 # or pip install mlflow==2.3.1 boto3 if your default pip comes alongside a python version >= 3.8
+pip3.8 install mlflow==2.7.1 boto3 # or pip install mlflow==2.7.1 boto3 if your default pip comes alongside a python version >= 3.8
 ```
 
 ```bash
@@ -526,7 +526,7 @@ Similarly as we did for the NGINX credentials, we ensure that the credentials fo
 FROM python:3.9.0
 
 RUN pip install \
-    mlflow==2.3.1 \
+    mlflow==2.7.1 \
     pymysql==1.0.2 \
     boto3 && \
     mkdir /mlflow/
@@ -875,7 +875,7 @@ MLFlow makes this effor easier by providing a CLI command that build the image l
 
 ```bash
 # install the libraries
-pip install mlflow==2.3.1 boto3
+pip install mlflow==2.7.1 boto3
 
 # build and push the container to ECR into your account
 mlflow sagemaker build-and-push-container
