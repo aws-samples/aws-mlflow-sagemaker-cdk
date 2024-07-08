@@ -8,11 +8,11 @@
     "cdk": "cdk"
   },
   "devDependencies": {
-    "@aws-cdk/aws-apigatewayv2-alpha": "2.85.0-alpha.0",
-    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.85.0-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-alpha": "2.114.1-alpha.0",
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "2.114.1-alpha.0",
     "@types/node": "10.17.27",
-    "aws-cdk": "2.85.0",
-    "aws-cdk-lib": "2.85.0",
+    "aws-cdk": "2.114.1",
+    "aws-cdk-lib": "2.114.1",
     "typescript": "~3.9.7"
   },
   "dependencies": {

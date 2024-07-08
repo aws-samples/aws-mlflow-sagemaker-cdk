@@ -10,6 +10,7 @@ import * as servicediscovery from "aws-cdk-lib/aws-servicediscovery";
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { CfnDBCluster, CfnDBSubnetGroup } from 'aws-cdk-lib/aws-rds';
+import { Platform } from "aws-cdk-lib/aws-ecr-assets";
 
 const { ApplicationProtocol } = elbv2;
 const dbName = "mlflowdb"
@@ -235,7 +236,11 @@ export class MLflowVpcStack extends cdk.Stack {
           containerPort: 80,
           protocol: ecs.Protocol.TCP
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth', {}),
+        image: ecs.ContainerImage.fromAsset('../../src/nginx/basic_auth',
+            {
+              platform: Platform.LINUX_AMD64
+            }
+        ),
         secrets: {
           MLFLOW_USERNAME: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'username'),
           MLFLOW_PASSWORD: ecs.Secret.fromSecretsManager(mlflowCredentialsSecret, 'password')
@@ -256,7 +261,11 @@ export class MLflowVpcStack extends cdk.Stack {
           containerPort: containerPort,
           protocol: ecs.Protocol.TCP,
         }],
-        image: ecs.ContainerImage.fromAsset('../../src/mlflow', {}),
+        image: ecs.ContainerImage.fromAsset('../../src/mlflow',
+            {
+              platform: Platform.LINUX_AMD64
+            }
+        ),
         environment: {
           'BUCKET': `s3://${mlFlowBucket.bucketName}`,
           'HOST': rdsCluster.attrEndpointAddress,
